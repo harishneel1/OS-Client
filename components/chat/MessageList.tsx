@@ -1,4 +1,4 @@
-import { Message } from "./ChatInterface";
+import { Message } from "../context/ChatContext";
 import { MessageItem } from "./MessageItem";
 
 interface MessageListProps {

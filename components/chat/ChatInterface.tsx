@@ -53,7 +53,7 @@ export function ChatInterface({ chatId }: ChatInterfaceProps) {
               Start a new conversation to begin chatting
             </p>
             <button
-              onClick={createNewChat}
+              onClick={() => createNewChat()}
               disabled={isLoading}
               className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white px-6 py-2 rounded-lg transition-colors"
             >
