@@ -1,50 +1,55 @@
 "use client";
 
-import { useState } from "react";
 import { MessageList } from "./MessageList";
 import { ChatInput } from "./ChatInput";
-
-export interface Message {
-  id: string;
-  content: string;
-  role: "user" | "assistant";
-  timestamp: Date;
-}
+import { ErrorDisplay } from "./ErrorDisplay";
+import { useChatContext } from "../context/ChatContext";
 
 export function ChatInterface() {
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const {
+    getCurrentChat,
+    sendMessage,
+    isLoading,
+    createNewChat,
+    error,
+    setError,
+  } = useChatContext();
 
-  const handleSendMessage = async (content: string) => {
-    // Add user message immediately
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      content,
-      role: "user",
-      timestamp: new Date(),
-    };
-
-    setMessages((prev) => [...prev, userMessage]);
-    setIsLoading(true);
-
-    // Simulate AI response (we'll replace this with real API later)
-    setTimeout(() => {
-      const assistantMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        content: `I received your message: "${content}". This is a simulated response!`,
-        role: "assistant",
-        timestamp: new Date(),
-      };
-
-      setMessages((prev) => [...prev, assistantMessage]);
-      setIsLoading(false);
-    }, 1000);
-  };
+  const currentChat = getCurrentChat();
 
   return (
     <div className="flex flex-col h-full">
-      <MessageList messages={messages} isLoading={isLoading} />
-      <ChatInput onSendMessage={handleSendMessage} disabled={isLoading} />
+      {error && (
+        <ErrorDisplay
+          error={error}
+          onDismiss={() => setError && setError(null)}
+        />
+      )}
+
+      {currentChat ? (
+        <>
+          <MessageList messages={currentChat.messages} isLoading={isLoading} />
+          <ChatInput onSendMessage={sendMessage} disabled={isLoading} />
+        </>
+      ) : (
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <h2 className="text-2xl font-bold text-gray-800 mb-2">
+              Welcome to ChatApp
+            </h2>
+            <p className="text-gray-600 mb-4">
+              Start a new conversation to begin chatting
+            </p>
+            <button
+              onClick={createNewChat}
+              disabled={isLoading}
+              className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white px-6 py-2 rounded-lg transition-colors"
+            >
+              {isLoading ? "Creating..." : "Start New Chat"}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

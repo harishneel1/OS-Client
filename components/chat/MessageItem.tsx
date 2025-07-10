@@ -20,7 +20,7 @@ export function MessageItem({ message }: MessageItemProps) {
             isUser ? "text-blue-200" : "text-gray-500"
           }`}
         >
-          {message.timestamp.toLocaleTimeString()}
+          {new Date(message.timestamp).toLocaleTimeString()}
         </p>
       </div>
     </div>

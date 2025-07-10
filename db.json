@@ -1,0 +1,76 @@
+{
+  "chats": [
+    {
+      "id": "1",
+      "title": "Getting Started with AI",
+      "messages": [
+        {
+          "id": "1",
+          "content": "Hello! How can I help you today?",
+          "role": "assistant",
+          "timestamp": "2024-01-10T10:00:00Z"
+        },
+        {
+          "id": "2",
+          "content": "I want to learn about AI",
+          "role": "user",
+          "timestamp": "2024-01-10T10:01:00Z"
+        },
+        {
+          "id": "3",
+          "content": "AI (Artificial Intelligence) is fascinating! It's the simulation of human intelligence in machines...",
+          "role": "assistant",
+          "timestamp": "2024-01-10T10:02:00Z"
+        },
+        {
+          "id": "1752130516376",
+          "content": "Nice!",
+          "role": "user",
+          "timestamp": "2025-07-10T06:55:16.376Z"
+        },
+        {
+          "id": "1752130517393",
+          "content": "I received your message: \"Nice!\". This is a simulated response from JSON server!",
+          "role": "assistant",
+          "timestamp": "2025-07-10T06:55:17.392Z"
+        }
+      ],
+      "createdAt": "2024-01-10T10:00:00Z",
+      "updatedAt": "2025-07-10T06:55:17.392Z"
+    },
+    {
+      "id": "2",
+      "title": "JavaScript Questions",
+      "messages": [
+        {
+          "id": "4",
+          "content": "Can you explain async/await in JavaScript?",
+          "role": "user",
+          "timestamp": "2024-01-10T11:00:00Z"
+        },
+        {
+          "id": "5",
+          "content": "Async/await is a syntax for handling asynchronous operations in JavaScript...",
+          "role": "assistant",
+          "timestamp": "2024-01-10T11:01:00Z"
+        }
+      ],
+      "createdAt": "2024-01-10T11:00:00Z",
+      "updatedAt": "2024-01-10T11:01:00Z"
+    },
+    {
+      "id": "3",
+      "title": "React Best Practices",
+      "messages": [
+        {
+          "id": "6",
+          "content": "What are some React best practices?",
+          "role": "user",
+          "timestamp": "2024-01-10T12:00:00Z"
+        }
+      ],
+      "createdAt": "2024-01-10T12:00:00Z",
+      "updatedAt": "2024-01-10T12:00:00Z"
+    }
+  ]
+}
