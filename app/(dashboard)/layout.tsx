@@ -1,5 +1,5 @@
-import { Sidebar } from "../../../components/layout/Sidebar";
-import { ChatProvider } from "../../../components/context/ChatContext";
+import { Sidebar } from "../../components/layout/Sidebar";
+import { ChatProvider } from "../../components/context/ChatContext";
 
 export default function DashboardLayout({
   children,

@@ -3,12 +3,27 @@
 import { UserButton } from "@clerk/nextjs";
 import { MessageSquare, Plus } from "lucide-react";
 import { useState } from "react";
+import { useRouter, usePathname } from "next/navigation";
 import { useChatContext } from "../context/ChatContext";
 
 export function Sidebar() {
   const [isCollapsed, setIsCollapsed] = useState(false);
-  const { chats, currentChatId, createNewChat, switchToChat } =
-    useChatContext();
+  const { chats } = useChatContext();
+  const router = useRouter();
+  const pathname = usePathname();
+
+  const handleNewChat = () => {
+    router.push("/new");
+  };
+
+  const handleChatClick = (chatId: string) => {
+    router.push(`/chat/${chatId}`);
+  };
+
+  // Get current chat ID from URL
+  const currentChatId = pathname.startsWith("/chat/")
+    ? pathname.split("/chat/")[1]
+    : null;
 
   return (
     <div
@@ -32,7 +47,7 @@ export function Sidebar() {
       {/* New Chat Button */}
       <div className="p-4">
         <button
-          onClick={createNewChat}
+          onClick={handleNewChat}
           className="w-full bg-blue-600 hover:bg-blue-700 rounded-lg p-3 flex items-center justify-center gap-2 transition-colors"
         >
           <Plus size={16} />
@@ -52,7 +67,7 @@ export function Sidebar() {
                 {chats.map((chat) => (
                   <button
                     key={chat.id}
-                    onClick={() => switchToChat(chat.id)}
+                    onClick={() => handleChatClick(chat.id)}
                     className={`w-full text-left p-2 rounded-lg text-sm transition-colors ${
                       currentChatId === chat.id
                         ? "bg-blue-600 text-white"

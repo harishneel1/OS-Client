@@ -7,6 +7,7 @@ import {
   useEffect,
   ReactNode,
 } from "react";
+import { useRouter, usePathname } from "next/navigation";
 
 export interface Message {
   id: string;
@@ -58,10 +59,25 @@ export function ChatProvider({ children }: ChatProviderProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const router = useRouter();
+  const pathname = usePathname();
+
   // Load chats from JSON server on mount
   useEffect(() => {
     loadChats();
   }, []);
+
+  // Sync currentChatId with URL
+  useEffect(() => {
+    if (pathname.startsWith("/chat/")) {
+      const chatIdFromUrl = pathname.split("/chat/")[1];
+      if (chatIdFromUrl !== currentChatId) {
+        setCurrentChatId(chatIdFromUrl);
+      }
+    } else if (pathname === "/new") {
+      setCurrentChatId(null);
+    }
+  }, [pathname, currentChatId]);
 
   const loadChats = async () => {
     try {
@@ -104,6 +120,9 @@ export function ChatProvider({ children }: ChatProviderProps) {
       const savedChat = await response.json();
       setChats((prev) => [savedChat, ...prev]);
       setCurrentChatId(savedChat.id);
+
+      // Navigate to the new chat
+      router.push(`/chat/${savedChat.id}`);
     } catch (err) {
       setError("Failed to create new chat");
       console.error("Error creating chat:", err);
@@ -135,7 +154,11 @@ export function ChatProvider({ children }: ChatProviderProps) {
   };
 
   const sendMessage = async (content: string) => {
-    if (!currentChatId) return;
+    // Early return if no current chat
+    if (!currentChatId) {
+      console.error("No current chat selected");
+      return;
+    }
 
     try {
       setError(null);
@@ -143,7 +166,11 @@ export function ChatProvider({ children }: ChatProviderProps) {
 
       // Find current chat
       const currentChat = chats.find((chat) => chat.id === currentChatId);
-      if (!currentChat) return;
+      if (!currentChat) {
+        setError("Chat not found");
+        setIsLoading(false);
+        return;
+      }
 
       // Add user message
       const userMessage: Message = {
@@ -153,7 +180,7 @@ export function ChatProvider({ children }: ChatProviderProps) {
         timestamp: new Date().toISOString(),
       };
 
-      // Update chat with user message and new title if it's the first message
+      // Update chat with user message and title if it's the first message
       const updatedChat: Chat = {
         ...currentChat,
         messages: [...currentChat.messages, userMessage],

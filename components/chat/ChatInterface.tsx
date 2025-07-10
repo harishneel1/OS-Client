@@ -4,8 +4,13 @@ import { MessageList } from "./MessageList";
 import { ChatInput } from "./ChatInput";
 import { ErrorDisplay } from "./ErrorDisplay";
 import { useChatContext } from "../context/ChatContext";
+import { useEffect } from "react";
 
-export function ChatInterface() {
+interface ChatInterfaceProps {
+  chatId?: string;
+}
+
+export function ChatInterface({ chatId }: ChatInterfaceProps) {
   const {
     getCurrentChat,
     sendMessage,
@@ -13,7 +18,14 @@ export function ChatInterface() {
     createNewChat,
     error,
     setError,
+    switchToChat,
   } = useChatContext();
+
+  useEffect(() => {
+    if (chatId) {
+      switchToChat(chatId);
+    }
+  }, [chatId, switchToChat]);
 
   const currentChat = getCurrentChat();
 
