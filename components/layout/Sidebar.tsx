@@ -1,14 +1,16 @@
 "use client";
 
 import { UserButton } from "@clerk/nextjs";
-import { MessageSquare, Plus } from "lucide-react";
+import { MessageSquare, Plus, Folder } from "lucide-react";
 import { useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useChatContext } from "../context/ChatContext";
 
 export function Sidebar() {
   const [isCollapsed, setIsCollapsed] = useState(false);
+
   const { chats } = useChatContext();
+
   const router = useRouter();
   const pathname = usePathname();
 
@@ -17,13 +19,36 @@ export function Sidebar() {
   };
 
   const handleChatClick = (chatId: string) => {
-    router.push(`/chat/${chatId}`);
+    const chat = chats.find((c) => c.id === chatId);
+    if (chat?.projectId) {
+      // Chat belongs to a project - use project URL structure
+      router.push(`/projects/${chat.projectId}/chats/${chatId}`);
+    } else {
+      // Unorganized chat - use simple URL structure
+      router.push(`/chats/${chatId}`);
+    }
   };
 
-  // Get current chat ID from URL
-  const currentChatId = pathname.startsWith("/chat/")
-    ? pathname.split("/chat/")[1]
-    : null;
+  const handleProjectsClick = () => {
+    router.push("/projects");
+  };
+
+  // Get current chat ID from URL (handles both URL structures)
+  const getCurrentChatId = () => {
+    if (pathname.startsWith("/project/") && pathname.includes("/chat/")) {
+      return pathname.split("/chat/")[1];
+    } else if (pathname.startsWith("/chat/")) {
+      return pathname.split("/chat/")[1];
+    }
+    return null;
+  };
+
+  const currentChatId = getCurrentChatId();
+
+  // Get all chats sorted by most recent activity
+  const recentChats = [...chats].sort(
+    (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+  );
 
   return (
     <div
@@ -55,16 +80,35 @@ export function Sidebar() {
         </button>
       </div>
 
-      {/* Chat History */}
+      {/* Navigation Tabs */}
+      {!isCollapsed && (
+        <div className="px-4 pb-4">
+          <nav className="space-y-1">
+            <button
+              onClick={handleProjectsClick}
+              className={`w-full flex items-center gap-2 p-2 text-sm rounded transition-colors ${
+                pathname === "/projects"
+                  ? "bg-gray-800 text-white"
+                  : "text-gray-300 hover:bg-gray-800"
+              }`}
+            >
+              <Folder size={16} />
+              <span>Projects</span>
+            </button>
+          </nav>
+        </div>
+      )}
+
+      {/* Recent Chats Section */}
       <div className="flex-1 overflow-y-auto p-4">
         {!isCollapsed && (
           <div className="space-y-2">
             <p className="text-sm text-gray-400">Recent Chats</p>
-            {chats.length === 0 ? (
-              <div className="text-sm text-gray-300">No chats yet...</div>
+            {recentChats.length === 0 ? (
+              <div className="text-sm text-gray-500">No chats yet...</div>
             ) : (
               <div className="space-y-1">
-                {chats.map((chat) => (
+                {recentChats.map((chat) => (
                   <button
                     key={chat.id}
                     onClick={() => handleChatClick(chat.id)}
