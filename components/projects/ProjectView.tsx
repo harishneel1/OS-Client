@@ -1,7 +1,15 @@
 "use client";
 
-import { useEffect } from "react";
-import { ArrowLeft, Plus, MessageSquare } from "lucide-react";
+import { useEffect, useState } from "react";
+import {
+  ArrowLeft,
+  Plus,
+  MessageSquare,
+  FileText,
+  Lock,
+  Trash2,
+  Loader2,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useChatContext } from "../context/ChatContext";
 
@@ -10,6 +18,10 @@ interface ProjectViewProps {
 }
 
 export function ProjectView({ projectId }: ProjectViewProps) {
+  const [activeTab, setActiveTab] = useState<"documents" | "settings">(
+    "documents"
+  );
+
   const router = useRouter();
   const {
     getProjectChats,
@@ -182,63 +194,188 @@ export function ProjectView({ projectId }: ProjectViewProps) {
       </div>
 
       {/* Right Sidebar - Knowledge Base */}
-      <div className="w-80 bg-gray-900 border-l border-gray-200 flex flex-col">
+      <div className="w-96 bg-white border-l border-gray-200 flex flex-col">
         {/* Header */}
-        <div className="p-6 border-b border-gray-700">
+        <div className="p-6 border-b border-gray-200">
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-lg font-semibold text-white">
-              Project knowledge
+            <h2 className="text-lg font-semibold text-gray-900">
+              Knowledge Base
             </h2>
-            <button className="text-gray-400 hover:text-white transition-colors">
+            <button className="text-gray-400 hover:text-gray-600 transition-colors">
               <Plus size={20} />
             </button>
           </div>
+        </div>
 
-          {/* Set project instructions */}
-          <div className="mb-4">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm text-gray-300">
-                Set project instructions
-              </span>
-              <span className="text-xs text-gray-500">Optional</span>
+        {/* File Upload Area */}
+        <div className="p-6">
+          <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-gray-400 transition-colors cursor-pointer">
+            <div className="mb-4">
+              <FileText className="w-8 h-8 text-gray-400 mx-auto" />
             </div>
+
+            <p className="text-gray-900 text-sm font-medium mb-2">
+              Drop files here or click to upload
+            </p>
+            <p className="text-gray-500 text-xs">
+              PDF, DOCX, TXT, MD supported
+            </p>
           </div>
         </div>
 
-        {/* Empty State */}
-        <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
-          <div className="mb-4">
-            <div className="w-16 h-16 bg-gray-800 rounded-lg flex items-center justify-center mb-4">
-              <svg
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                fill="none"
-                className="text-gray-500"
-              >
-                <path
-                  d="M14 2H6C4.9 2 4 2.9 4 4V20C4 21.1 4.89 22 5.99 22H18C19.1 22 20 21.1 20 20V8L14 2Z"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-                <polyline
-                  points="14,2 14,8 20,8"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </div>
+        {/* Tabs Navigation */}
+        <div className="px-6">
+          <div className="flex border-b border-gray-200">
+            <button
+              onClick={() => setActiveTab("documents")}
+              className={`flex-1 py-3 text-sm font-medium transition-colors ${
+                activeTab === "documents"
+                  ? "text-blue-600 border-b-2 border-blue-600"
+                  : "text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              Documents
+            </button>
+            <button
+              onClick={() => setActiveTab("settings")}
+              className={`flex-1 py-3 text-sm font-medium transition-colors ${
+                activeTab === "settings"
+                  ? "text-blue-600 border-b-2 border-blue-600"
+                  : "text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              Settings
+            </button>
           </div>
+        </div>
 
-          <p className="text-gray-400 text-sm leading-relaxed">
-            No knowledge added yet. Add PDFs, documents, or other text to the
-            project knowledge base that Claude will reference in every project
-            conversation.
-          </p>
+        {/* Tab Content */}
+        <div className="flex-1 overflow-y-auto p-6">
+          {activeTab === "documents" ? (
+            /* Documents Tab Content */
+            <div className="space-y-3">
+              {/* Sample Documents */}
+              <div className="flex items-center justify-between p-3 border border-gray-200 rounded-lg">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 bg-red-100 rounded flex items-center justify-center">
+                    <FileText className="w-4 h-4 text-red-600" />
+                  </div>
+                  <div>
+                    <div className="text-sm font-medium text-gray-900">
+                      Employment_Contract_Template.pdf
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      2.3 MB • Processed
+                    </div>
+                  </div>
+                </div>
+                <button className="text-gray-400 hover:text-red-600 transition-colors">
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="flex items-center justify-between p-3 border border-gray-200 rounded-lg">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 bg-blue-100 rounded flex items-center justify-center">
+                    <FileText className="w-4 h-4 text-blue-600" />
+                  </div>
+                  <div>
+                    <div className="text-sm font-medium text-gray-900">
+                      Privacy_Policy_2024.docx
+                    </div>
+                    <div className="text-xs text-gray-500 flex items-center gap-2">
+                      1.8 MB • Processing...
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                    </div>
+                  </div>
+                </div>
+                <button className="text-gray-400 hover:text-red-600 transition-colors">
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          ) : (
+            /* Settings Tab Content */
+            <div className="space-y-6">
+              {/* Embedding Model */}
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-sm font-medium text-gray-900">
+                    Embedding Model
+                  </span>
+                </div>
+                <div className="relative">
+                  <select
+                    disabled
+                    className="w-full p-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-500 text-sm cursor-not-allowed"
+                  >
+                    <option>text-embedding-3-large</option>
+                  </select>
+                  <div className="flex items-center mt-2 text-xs text-gray-500">
+                    <Lock className="w-3 h-3 mr-1" />
+                    Locked after first document upload
+                  </div>
+                </div>
+              </div>
+
+              {/* Search Strategy */}
+              <div>
+                <div className="text-sm font-bold text-gray-900 mb-4">
+                  Search Strategy
+                </div>
+
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-900">
+                      Vector Search (RAG)
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-gray-500">Basic</span>
+                      <div className="w-10 h-6 bg-blue-600 rounded-full relative cursor-pointer">
+                        <div className="w-4 h-4 bg-white rounded-full absolute top-1 right-1 transition-transform"></div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-900">Hybrid Search</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-gray-500">
+                        Intermediate
+                      </span>
+                      <div className="w-10 h-6 bg-gray-200 rounded-full relative cursor-pointer">
+                        <div className="w-4 h-4 bg-white rounded-full absolute top-1 left-1 transition-transform"></div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-900">
+                      Reciprocal Rank Fusion (RRF)
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-gray-500">
+                        Intermediate
+                      </span>
+                      <div className="w-10 h-6 bg-gray-200 rounded-full relative cursor-pointer">
+                        <div className="w-4 h-4 bg-white rounded-full absolute top-1 left-1 transition-transform"></div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-900">Adaptive RAG</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-gray-500">Advanced</span>
+                      <div className="w-10 h-6 bg-gray-200 rounded-full relative cursor-pointer">
+                        <div className="w-4 h-4 bg-white rounded-full absolute top-1 left-1 transition-transform"></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
