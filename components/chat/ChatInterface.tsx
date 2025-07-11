@@ -8,6 +8,7 @@ import { useEffect } from "react";
 
 interface ChatInterfaceProps {
   chatId?: string;
+  projectId?: string;
 }
 
 export function ChatInterface({ chatId }: ChatInterfaceProps) {
@@ -41,7 +42,11 @@ export function ChatInterface({ chatId }: ChatInterfaceProps) {
       {currentChat ? (
         <>
           <MessageList messages={currentChat.messages} isLoading={isLoading} />
-          <ChatInput onSendMessage={sendMessage} disabled={isLoading} />
+          <ChatInput
+            chatId={currentChat.id}
+            onSendMessage={sendMessage}
+            disabled={isLoading}
+          />
         </>
       ) : (
         <div className="flex-1 flex items-center justify-center">

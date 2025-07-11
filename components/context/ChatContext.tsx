@@ -42,9 +42,12 @@ interface ChatContextType {
   error: string | null;
 
   // Chat operations
-  createNewChat: (projectId?: string | null) => Promise<void>;
+  createNewChat: (
+    projectId?: string | null,
+    initialMessage?: string
+  ) => Promise<void>;
   switchToChat: (chatId: string) => void;
-  sendMessage: (content: string) => Promise<void>;
+  sendMessage: (chatId: string, content: string) => Promise<void>;
   getCurrentChat: () => Chat | undefined;
   loadChats: () => Promise<void>;
 
@@ -188,7 +191,6 @@ export function ChatProvider({ children }: ChatProviderProps) {
   };
 
   const createNewChat = async (projectId: string | null = null) => {
-    // 🆕 Added projectId parameter
     try {
       setError(null);
       const newChat: Chat = {
@@ -217,7 +219,11 @@ export function ChatProvider({ children }: ChatProviderProps) {
       setCurrentChatId(savedChat.id);
 
       // Navigate to the new chat
-      router.push(`/chat/${savedChat.id}`);
+
+      const chatUrl = projectId
+        ? `/projects/${projectId}/chats/${savedChat.id}`
+        : `/chats/${savedChat.id}`;
+      router.push(chatUrl);
     } catch (err) {
       setError("Failed to create new chat");
       console.error("Error creating chat:", err);
@@ -248,19 +254,13 @@ export function ChatProvider({ children }: ChatProviderProps) {
     return response.json();
   };
 
-  const sendMessage = async (content: string) => {
-    // Early return if no current chat
-    if (!currentChatId) {
-      console.error("No current chat selected");
-      return;
-    }
-
+  const sendMessage = async (chatId: string, content: string) => {
     try {
       setError(null);
       setIsLoading(true);
 
       // Find current chat
-      const currentChat = chats.find((chat) => chat.id === currentChatId);
+      const currentChat = chats.find((chat) => chat.id === chatId);
       if (!currentChat) {
         setError("Chat not found");
         setIsLoading(false);

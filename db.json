@@ -1,7 +1,24 @@
 {
+  "projects": [
+    {
+      "id": "proj-1",
+      "name": "Work Research",
+      "description": "AI research for work projects",
+      "createdAt": "2024-01-15T10:00:00Z",
+      "updatedAt": "2024-01-15T10:00:00Z"
+    },
+    {
+      "id": "proj-2",
+      "name": "Personal Learning",
+      "description": "Learning new technologies and concepts",
+      "createdAt": "2024-01-12T14:30:00Z",
+      "updatedAt": "2024-01-12T14:30:00Z"
+    }
+  ],
   "chats": [
     {
       "id": "1",
+      "projectId": null,
       "title": "Getting Started with AI",
       "messages": [
         {
@@ -40,6 +57,7 @@
     },
     {
       "id": "2",
+      "projectId": null,
       "title": "JavaScript Questions",
       "messages": [
         {
@@ -53,13 +71,26 @@
           "content": "Async/await is a syntax for handling asynchronous operations in JavaScript...",
           "role": "assistant",
           "timestamp": "2024-01-10T11:01:00Z"
+        },
+        {
+          "id": "1752218458890",
+          "content": "hi there, this is a dummy text",
+          "role": "user",
+          "timestamp": "2025-07-11T07:20:58.890Z"
+        },
+        {
+          "id": "1752218459898",
+          "content": "I received your message: \"hi there, this is a dummy text\". This is a simulated response from JSON server!",
+          "role": "assistant",
+          "timestamp": "2025-07-11T07:20:59.897Z"
         }
       ],
       "createdAt": "2024-01-10T11:00:00Z",
-      "updatedAt": "2024-01-10T11:01:00Z"
+      "updatedAt": "2025-07-11T07:20:59.897Z"
     },
     {
       "id": "3",
+      "projectId": null,
       "title": "React Best Practices",
       "messages": [
         {
@@ -71,6 +102,39 @@
       ],
       "createdAt": "2024-01-10T12:00:00Z",
       "updatedAt": "2024-01-10T12:00:00Z"
+    },
+    {
+      "id": "1752221239102",
+      "projectId": "proj-1",
+      "title": "This is the first chat",
+      "messages": [
+        {
+          "id": "1752221244569",
+          "content": "This is the first chat",
+          "role": "user",
+          "timestamp": "2025-07-11T08:07:24.570Z"
+        },
+        {
+          "id": "1752221245581",
+          "content": "I received your message: \"This is the first chat\". This is a simulated response from JSON server!",
+          "role": "assistant",
+          "timestamp": "2025-07-11T08:07:25.580Z"
+        },
+        {
+          "id": "1752221263873",
+          "content": "Next>",
+          "role": "user",
+          "timestamp": "2025-07-11T08:07:43.873Z"
+        },
+        {
+          "id": "1752221264885",
+          "content": "I received your message: \"Next>\". This is a simulated response from JSON server!",
+          "role": "assistant",
+          "timestamp": "2025-07-11T08:07:44.884Z"
+        }
+      ],
+      "createdAt": "2025-07-11T08:07:19.102Z",
+      "updatedAt": "2025-07-11T08:07:44.884Z"
     }
   ]
 }
