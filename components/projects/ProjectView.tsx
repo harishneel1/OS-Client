@@ -1,28 +1,53 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import {
-  ArrowLeft,
-  Plus,
-  MessageSquare,
-  FileText,
-  Lock,
-  Trash2,
-  Loader2,
-} from "lucide-react";
+import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Settings, Upload, FileText, Plus, MessageSquare } from "lucide-react";
 import { useChatContext } from "../context/ChatContext";
+
+interface RAGSettings {
+  embeddingModel: string;
+  ragStrategy: "basic" | "hybrid" | "multi-query-vector" | "multi-query-hybrid";
+  chunksPerSearch: number;
+  finalContextSize: number;
+  similarityThreshold: number;
+  numberOfQueries: number;
+  reranking: {
+    enabled: boolean;
+    model: string;
+  };
+  hybridSearch: {
+    vectorWeight: number;
+    keywordWeight: number;
+  };
+}
 
 interface ProjectViewProps {
   projectId: string;
 }
 
 export function ProjectView({ projectId }: ProjectViewProps) {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<"documents" | "settings">(
     "documents"
   );
+  const [settings, setSettings] = useState<RAGSettings>({
+    embeddingModel: "text-embedding-3-large",
+    ragStrategy: "basic",
+    chunksPerSearch: 20,
+    finalContextSize: 5,
+    similarityThreshold: 0.8,
+    numberOfQueries: 5,
+    reranking: {
+      enabled: false,
+      model: "ms-marco-MiniLM-L-12-v2",
+    },
+    hybridSearch: {
+      vectorWeight: 0.7,
+      keywordWeight: 0.3,
+    },
+  });
 
-  const router = useRouter();
   const {
     getProjectChats,
     getCurrentProject,
@@ -39,8 +64,79 @@ export function ProjectView({ projectId }: ProjectViewProps) {
   const currentProject = getCurrentProject();
   const projectChats = getProjectChats(projectId);
 
-  const handleBackToProjects = () => {
-    router.push("/projects");
+  const updateSettings = (key: keyof RAGSettings, value: any) => {
+    setSettings((prev) => ({
+      ...prev,
+      [key]: value,
+    }));
+  };
+
+  const updateNestedSettings = (
+    category: "reranking" | "hybridSearch",
+    key: string,
+    value: any
+  ) => {
+    setSettings((prev) => ({
+      ...prev,
+      [category]: {
+        ...prev[category],
+        [key]: value,
+      },
+    }));
+  };
+
+  const updateVectorWeight = (weight: number) => {
+    setSettings((prev) => ({
+      ...prev,
+      hybridSearch: {
+        vectorWeight: weight,
+        keywordWeight: 1 - weight,
+      },
+    }));
+  };
+
+  const calculatePerformanceMetrics = () => {
+    const { ragStrategy, chunksPerSearch, numberOfQueries, reranking } =
+      settings;
+
+    let totalChunks = chunksPerSearch;
+    let afterDedupe = chunksPerSearch;
+    let latency = 400; // Base latency
+    let strategyLevel = "Basic";
+
+    switch (ragStrategy) {
+      case "basic":
+        strategyLevel = "Basic";
+        break;
+      case "hybrid":
+        latency = 600;
+        strategyLevel = "Intermediate";
+        break;
+      case "multi-query-vector":
+        totalChunks = chunksPerSearch * numberOfQueries;
+        afterDedupe = Math.floor(totalChunks * 0.7); // Assume 70% unique
+        latency = 800 + numberOfQueries * 200;
+        strategyLevel = "Advanced";
+        break;
+      case "multi-query-hybrid":
+        totalChunks = chunksPerSearch * numberOfQueries;
+        afterDedupe = Math.floor(totalChunks * 0.7);
+        latency = 1000 + numberOfQueries * 300;
+        strategyLevel = "Expert";
+        break;
+    }
+
+    if (reranking.enabled) {
+      latency += 200;
+    }
+
+    return { totalChunks, afterDedupe, latency, strategyLevel };
+  };
+
+  const handleApplySettings = () => {
+    // This would typically send settings to your backend/context
+    console.log("Applying RAG Settings for project:", projectId, settings);
+    alert("RAG Settings Applied Successfully!");
   };
 
   const handleCreateNewChat = async () => {
@@ -50,6 +146,8 @@ export function ProjectView({ projectId }: ProjectViewProps) {
   const handleChatClick = (chatId: string) => {
     router.push(`/projects/${projectId}/chats/${chatId}`);
   };
+
+  const metrics = calculatePerformanceMetrics();
 
   // Loading state
   if (!currentProject) {
@@ -61,37 +159,23 @@ export function ProjectView({ projectId }: ProjectViewProps) {
   }
 
   return (
-    <div className="flex h-full bg-gray-50">
+    <div className="flex h-screen bg-gray-50">
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col">
         {/* Project Header */}
         <div className="bg-white border-b border-gray-200 p-6">
-          <div className="max-w-4xl mx-auto">
-            {/* Back Navigation */}
-            <div className="flex items-center mb-4">
-              <button
-                onClick={handleBackToProjects}
-                className="flex items-center text-gray-600 hover:text-gray-900 transition-colors"
-              >
-                <ArrowLeft size={16} className="mr-1" />
-                All projects
-              </button>
-            </div>
-
-            {/* Project Title */}
-            <div className="flex items-center gap-3">
+          <div className="flex items-center justify-between">
+            <div>
               <h1 className="text-2xl font-bold text-gray-900">
                 {currentProject.name}
               </h1>
-              <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-md flex items-center gap-1">
-                <span className="w-2 h-2 bg-gray-400 rounded-full"></span>
-                Private
+              <p className="text-gray-600 mt-1">{currentProject.description}</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                🔒 Private
               </span>
             </div>
-
-            {currentProject.description && (
-              <p className="text-gray-600 mt-2">{currentProject.description}</p>
-            )}
           </div>
         </div>
 
@@ -165,17 +249,6 @@ export function ProjectView({ projectId }: ProjectViewProps) {
                                 {new Date(chat.updatedAt).toLocaleDateString()}
                               </span>
                             </div>
-                            {chat.messages.length > 0 && (
-                              <p className="text-gray-600 text-sm mt-2 line-clamp-2">
-                                {chat.messages[
-                                  chat.messages.length - 1
-                                ]?.content?.slice(0, 150)}
-                                {chat.messages[chat.messages.length - 1]
-                                  ?.content?.length > 150
-                                  ? "..."
-                                  : ""}
-                              </p>
-                            )}
                           </div>
                           <div className="ml-4">
                             <MessageSquare
@@ -193,187 +266,457 @@ export function ProjectView({ projectId }: ProjectViewProps) {
         </div>
       </div>
 
-      {/* Right Sidebar - Knowledge Base */}
-      <div className="w-96 bg-white border-l border-gray-200 flex flex-col">
+      {/* Knowledge Base Sidebar */}
+      <div className="w-80 border-l border-gray-200 bg-white h-full flex flex-col">
         {/* Header */}
-        <div className="p-6 border-b border-gray-200">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-lg font-semibold text-gray-900">
-              Knowledge Base
-            </h2>
-            <button className="text-gray-400 hover:text-gray-600 transition-colors">
-              <Plus size={20} />
-            </button>
-          </div>
+        <div className="p-4 border-b border-gray-200">
+          <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+            <FileText size={20} />
+            Knowledge Base
+            <Plus
+              size={16}
+              className="ml-auto text-gray-400 hover:text-gray-600 cursor-pointer"
+            />
+          </h2>
         </div>
 
-        {/* File Upload Area */}
-        <div className="p-6">
-          <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-gray-400 transition-colors cursor-pointer">
-            <div className="mb-4">
-              <FileText className="w-8 h-8 text-gray-400 mx-auto" />
-            </div>
-
-            <p className="text-gray-900 text-sm font-medium mb-2">
-              Drop files here or click to upload
-            </p>
-            <p className="text-gray-500 text-xs">
-              PDF, DOCX, TXT, MD supported
-            </p>
-          </div>
+        {/* Tabs */}
+        <div className="flex border-b border-gray-200">
+          <button
+            onClick={() => setActiveTab("documents")}
+            className={`flex-1 py-3 px-4 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === "documents"
+                ? "border-blue-500 text-blue-600"
+                : "border-transparent text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            Documents
+          </button>
+          <button
+            onClick={() => setActiveTab("settings")}
+            className={`flex-1 py-3 px-4 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === "settings"
+                ? "border-blue-500 text-blue-600"
+                : "border-transparent text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            Settings
+          </button>
         </div>
 
-        {/* Tabs Navigation */}
-        <div className="px-6">
-          <div className="flex border-b border-gray-200">
-            <button
-              onClick={() => setActiveTab("documents")}
-              className={`flex-1 py-3 text-sm font-medium transition-colors ${
-                activeTab === "documents"
-                  ? "text-blue-600 border-b-2 border-blue-600"
-                  : "text-gray-500 hover:text-gray-700"
-              }`}
-            >
-              Documents
-            </button>
-            <button
-              onClick={() => setActiveTab("settings")}
-              className={`flex-1 py-3 text-sm font-medium transition-colors ${
-                activeTab === "settings"
-                  ? "text-blue-600 border-b-2 border-blue-600"
-                  : "text-gray-500 hover:text-gray-700"
-              }`}
-            >
-              Settings
-            </button>
-          </div>
-        </div>
-
-        {/* Tab Content */}
-        <div className="flex-1 overflow-y-auto p-6">
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto">
           {activeTab === "documents" ? (
-            /* Documents Tab Content */
-            <div className="space-y-3">
-              {/* Sample Documents */}
-              <div className="flex items-center justify-between p-3 border border-gray-200 rounded-lg">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 bg-red-100 rounded flex items-center justify-center">
-                    <FileText className="w-4 h-4 text-red-600" />
-                  </div>
-                  <div>
-                    <div className="text-sm font-medium text-gray-900">
-                      Employment_Contract_Template.pdf
-                    </div>
-                    <div className="text-xs text-gray-500">
-                      2.3 MB • Processed
-                    </div>
-                  </div>
-                </div>
-                <button className="text-gray-400 hover:text-red-600 transition-colors">
-                  <Trash2 className="w-4 h-4" />
-                </button>
+            <div className="p-4 space-y-4">
+              {/* File Upload Area */}
+              <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-gray-400 transition-colors cursor-pointer">
+                <Upload className="mx-auto h-8 w-8 text-gray-400" />
+                <p className="mt-2 text-sm text-gray-600">
+                  Drop files here or click to upload
+                </p>
+                <p className="text-xs text-gray-500 mt-1">
+                  PDF, DOCX, TXT, MD supported
+                </p>
               </div>
 
-              <div className="flex items-center justify-between p-3 border border-gray-200 rounded-lg">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 bg-blue-100 rounded flex items-center justify-center">
-                    <FileText className="w-4 h-4 text-blue-600" />
+              {/* Documents List */}
+              <div>
+                <h3 className="text-sm font-medium text-gray-700 mb-3">
+                  Uploaded Documents
+                </h3>
+                <div className="space-y-2">
+                  {/* Document Item 1 */}
+                  <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <FileText size={16} className="text-gray-500" />
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">
+                          research-paper.pdf
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          2.3 MB • Uploaded 2 hours ago
+                        </p>
+                      </div>
+                    </div>
+                    <button className="text-gray-400 hover:text-red-500 transition-colors">
+                      <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 16 16"
+                        fill="currentColor"
+                      >
+                        <path d="M6.5 1h3a.5.5 0 0 1 .5.5v1H6v-1a.5.5 0 0 1 .5-.5ZM11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3A1.5 1.5 0 0 0 5 1.5v1H2.506a.58.58 0 0 0-.01 1.152l.557 10.02A1.5 1.5 0 0 0 4.551 15h6.898a1.5 1.5 0 0 0 1.498-1.328l.557-10.02a.58.58 0 0 0-.01-1.152H11Z" />
+                      </svg>
+                    </button>
                   </div>
-                  <div>
-                    <div className="text-sm font-medium text-gray-900">
-                      Privacy_Policy_2024.docx
+
+                  {/* Document Item 2 */}
+                  <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <FileText size={16} className="text-gray-500" />
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">
+                          project-notes.md
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          156 KB • Uploaded 1 day ago
+                        </p>
+                      </div>
                     </div>
-                    <div className="text-xs text-gray-500 flex items-center gap-2">
-                      1.8 MB • Processing...
-                      <Loader2 className="w-3 h-3 animate-spin" />
+                    <button className="text-gray-400 hover:text-red-500 transition-colors">
+                      <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 16 16"
+                        fill="currentColor"
+                      >
+                        <path d="M6.5 1h3a.5.5 0 0 1 .5.5v1H6v-1a.5.5 0 0 1 .5-.5ZM11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3A1.5 1.5 0 0 0 5 1.5v1H2.506a.58.58 0 0 0-.01 1.152l.557 10.02A1.5 1.5 0 0 0 4.551 15h6.898a1.5 1.5 0 0 0 1.498-1.328l.557-10.02a.58.58 0 0 0-.01-1.152H11Z" />
+                      </svg>
+                    </button>
+                  </div>
+
+                  {/* Document Item 3 */}
+                  <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <FileText size={16} className="text-gray-500" />
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">
+                          documentation.docx
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          3.7 MB • Uploaded 3 days ago
+                        </p>
+                      </div>
                     </div>
+                    <button className="text-gray-400 hover:text-red-500 transition-colors">
+                      <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 16 16"
+                        fill="currentColor"
+                      >
+                        <path d="M6.5 1h3a.5.5 0 0 1 .5.5v1H6v-1a.5.5 0 0 1 .5-.5ZM11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3A1.5 1.5 0 0 0 5 1.5v1H2.506a.58.58 0 0 0-.01 1.152l.557 10.02A1.5 1.5 0 0 0 4.551 15h6.898a1.5 1.5 0 0 0 1.498-1.328l.557-10.02a.58.58 0 0 0-.01-1.152H11Z" />
+                      </svg>
+                    </button>
                   </div>
                 </div>
-                <button className="text-gray-400 hover:text-red-600 transition-colors">
-                  <Trash2 className="w-4 h-4" />
-                </button>
               </div>
             </div>
           ) : (
-            /* Settings Tab Content */
-            <div className="space-y-6">
+            <div className="p-4 space-y-6">
               {/* Embedding Model */}
               <div>
-                <div className="flex items-center justify-between mb-3">
-                  <span className="text-sm font-medium text-gray-900">
-                    Embedding Model
-                  </span>
-                </div>
-                <div className="relative">
-                  <select
-                    disabled
-                    className="w-full p-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-500 text-sm cursor-not-allowed"
-                  >
-                    <option>text-embedding-3-large</option>
-                  </select>
-                  <div className="flex items-center mt-2 text-xs text-gray-500">
-                    <Lock className="w-3 h-3 mr-1" />
-                    Locked after first document upload
-                  </div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Embedding Model
+                </label>
+                <select
+                  value={settings.embeddingModel}
+                  onChange={(e) =>
+                    updateSettings("embeddingModel", e.target.value)
+                  }
+                  className="w-full p-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="text-embedding-3-large">
+                    text-embedding-3-large
+                  </option>
+                  <option value="text-embedding-3-small">
+                    text-embedding-3-small
+                  </option>
+                  <option value="text-embedding-ada-002">
+                    text-embedding-ada-002
+                  </option>
+                </select>
+                <p className="text-xs text-gray-500 mt-1">
+                  🔒 Locked after first document upload
+                </p>
+              </div>
+
+              {/* RAG Strategy */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  RAG Strategy
+                </label>
+                <div className="space-y-2">
+                  {[
+                    {
+                      value: "basic",
+                      label: "Basic Vector Search",
+                      description: "Simple semantic search",
+                    },
+                    {
+                      value: "hybrid",
+                      label: "Hybrid Search (Vector + BM25)",
+                      description: "Semantic + keyword matching",
+                    },
+                    {
+                      value: "multi-query-vector",
+                      label: "Multi-Query (Vector Only)",
+                      description: "Multiple queries, vector search",
+                    },
+                    {
+                      value: "multi-query-hybrid",
+                      label: "Multi-Query (Hybrid)",
+                      description: "Multiple queries, hybrid search",
+                    },
+                  ].map((strategy) => (
+                    <label
+                      key={strategy.value}
+                      className="flex items-start space-x-3 p-2 hover:bg-gray-50 rounded cursor-pointer"
+                    >
+                      <input
+                        type="radio"
+                        name="ragStrategy"
+                        value={strategy.value}
+                        checked={settings.ragStrategy === strategy.value}
+                        onChange={(e) =>
+                          updateSettings("ragStrategy", e.target.value)
+                        }
+                        className="mt-1"
+                      />
+                      <div>
+                        <div className="text-sm font-medium text-gray-900">
+                          {strategy.label}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {strategy.description}
+                        </div>
+                      </div>
+                    </label>
+                  ))}
                 </div>
               </div>
 
-              {/* Search Strategy */}
+              {/* Retrieval Parameters */}
               <div>
-                <div className="text-sm font-bold text-gray-900 mb-4">
-                  Search Strategy
-                </div>
+                <h3 className="text-sm font-medium text-gray-700 mb-3">
+                  Retrieval Parameters
+                </h3>
 
                 <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-900">
-                      Vector Search (RAG)
-                    </span>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-gray-500">Basic</span>
-                      <div className="w-10 h-6 bg-blue-600 rounded-full relative cursor-pointer">
-                        <div className="w-4 h-4 bg-white rounded-full absolute top-1 right-1 transition-transform"></div>
-                      </div>
-                    </div>
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">
+                      Chunks per Search: {settings.chunksPerSearch}
+                    </label>
+                    <input
+                      type="range"
+                      min="5"
+                      max="50"
+                      value={settings.chunksPerSearch}
+                      onChange={(e) =>
+                        updateSettings(
+                          "chunksPerSearch",
+                          parseInt(e.target.value)
+                        )
+                      }
+                      className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
+                    />
                   </div>
 
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-900">Hybrid Search</span>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-gray-500">
-                        Intermediate
-                      </span>
-                      <div className="w-10 h-6 bg-gray-200 rounded-full relative cursor-pointer">
-                        <div className="w-4 h-4 bg-white rounded-full absolute top-1 left-1 transition-transform"></div>
-                      </div>
-                    </div>
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">
+                      Final Context Size: {settings.finalContextSize}
+                    </label>
+                    <input
+                      type="range"
+                      min="3"
+                      max="15"
+                      value={settings.finalContextSize}
+                      onChange={(e) =>
+                        updateSettings(
+                          "finalContextSize",
+                          parseInt(e.target.value)
+                        )
+                      }
+                      className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
+                    />
                   </div>
 
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-900">
-                      Reciprocal Rank Fusion (RRF)
-                    </span>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-gray-500">
-                        Intermediate
-                      </span>
-                      <div className="w-10 h-6 bg-gray-200 rounded-full relative cursor-pointer">
-                        <div className="w-4 h-4 bg-white rounded-full absolute top-1 left-1 transition-transform"></div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-900">Adaptive RAG</span>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-gray-500">Advanced</span>
-                      <div className="w-10 h-6 bg-gray-200 rounded-full relative cursor-pointer">
-                        <div className="w-4 h-4 bg-white rounded-full absolute top-1 left-1 transition-transform"></div>
-                      </div>
-                    </div>
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">
+                      Similarity Threshold: {settings.similarityThreshold}
+                    </label>
+                    <input
+                      type="range"
+                      min="0.5"
+                      max="0.95"
+                      step="0.05"
+                      value={settings.similarityThreshold}
+                      onChange={(e) =>
+                        updateSettings(
+                          "similarityThreshold",
+                          parseFloat(e.target.value)
+                        )
+                      }
+                      className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
+                    />
                   </div>
                 </div>
               </div>
+
+              {/* Multi-Query Settings */}
+              {(settings.ragStrategy === "multi-query-vector" ||
+                settings.ragStrategy === "multi-query-hybrid") && (
+                <div>
+                  <h3 className="text-sm font-medium text-gray-700 mb-3">
+                    Multi-Query Settings
+                  </h3>
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">
+                      Number of Queries: {settings.numberOfQueries}
+                    </label>
+                    <input
+                      type="range"
+                      min="3"
+                      max="7"
+                      value={settings.numberOfQueries}
+                      onChange={(e) =>
+                        updateSettings(
+                          "numberOfQueries",
+                          parseInt(e.target.value)
+                        )
+                      }
+                      className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Reranking */}
+              <div>
+                <h3 className="text-sm font-medium text-gray-700 mb-3">
+                  Reranking
+                </h3>
+                <div className="space-y-3">
+                  <label className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      checked={settings.reranking.enabled}
+                      onChange={(e) =>
+                        updateNestedSettings(
+                          "reranking",
+                          "enabled",
+                          e.target.checked
+                        )
+                      }
+                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    <span className="text-sm text-gray-700">
+                      Enable Reranking
+                    </span>
+                  </label>
+
+                  {settings.reranking.enabled && (
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-1">
+                        Reranker Model
+                      </label>
+                      <select
+                        value={settings.reranking.model}
+                        onChange={(e) =>
+                          updateNestedSettings(
+                            "reranking",
+                            "model",
+                            e.target.value
+                          )
+                        }
+                        className="w-full p-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      >
+                        <option value="ms-marco-MiniLM-L-12-v2">
+                          ms-marco-MiniLM-L-12-v2
+                        </option>
+                        <option value="bge-reranker-base">
+                          bge-reranker-base
+                        </option>
+                        <option value="bge-reranker-large">
+                          bge-reranker-large
+                        </option>
+                      </select>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Hybrid Search Settings */}
+              {(settings.ragStrategy === "hybrid" ||
+                settings.ragStrategy === "multi-query-hybrid") && (
+                <div>
+                  <h3 className="text-sm font-medium text-gray-700 mb-3">
+                    Hybrid Search
+                  </h3>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-1">
+                        Vector Weight:{" "}
+                        {settings.hybridSearch.vectorWeight.toFixed(1)}
+                      </label>
+                      <input
+                        type="range"
+                        min="0.1"
+                        max="0.9"
+                        step="0.1"
+                        value={settings.hybridSearch.vectorWeight}
+                        onChange={(e) =>
+                          updateVectorWeight(parseFloat(e.target.value))
+                        }
+                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
+                      />
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      Keyword Weight:{" "}
+                      {settings.hybridSearch.keywordWeight.toFixed(1)}{" "}
+                      (auto-calculated)
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Performance Impact */}
+              <div>
+                <h3 className="text-sm font-medium text-gray-700 mb-3">
+                  Performance Impact
+                </h3>
+                <div className="bg-gray-50 p-3 rounded-lg space-y-2 text-xs">
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">
+                      Total Chunks Retrieved:
+                    </span>
+                    <span className="font-medium">~{metrics.totalChunks}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">After Deduplication:</span>
+                    <span className="font-medium">~{metrics.afterDedupe}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Estimated Latency:</span>
+                    <span className="font-medium">~{metrics.latency}ms</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Strategy Level:</span>
+                    <span
+                      className={`font-medium ${
+                        metrics.strategyLevel === "Basic"
+                          ? "text-green-600"
+                          : metrics.strategyLevel === "Intermediate"
+                          ? "text-blue-600"
+                          : metrics.strategyLevel === "Advanced"
+                          ? "text-orange-600"
+                          : "text-red-600"
+                      }`}
+                    >
+                      {metrics.strategyLevel}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Apply Settings Button */}
+              <button
+                onClick={handleApplySettings}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg transition-colors flex items-center justify-center gap-2 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+              >
+                <Settings size={16} />
+                Apply RAG Settings
+              </button>
             </div>
           )}
         </div>

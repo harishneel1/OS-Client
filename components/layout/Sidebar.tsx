@@ -2,13 +2,13 @@
 
 import { UserButton } from "@clerk/nextjs";
 import {
-  MessageSquare,
   Plus,
-  Folder,
-  ChevronLeft,
-  ChevronRight,
   MoreHorizontal,
   Trash2,
+  MessageCircle,
+  Briefcase,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from "lucide-react";
 import { useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
@@ -71,14 +71,16 @@ export function Sidebar() {
     >
       {/* Header */}
       <div className="p-3 flex items-center justify-between">
-        {!isCollapsed && (
-          <h1 className="text-lg font-medium">Enterprise RAG</h1>
-        )}
+        {!isCollapsed && <h1 className="text-lg font-medium">OpenSlate</h1>}
         <button
           onClick={() => setIsCollapsed(!isCollapsed)}
           className="p-2 hover:bg-gray-800 rounded-md transition-colors"
         >
-          {isCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
+          {isCollapsed ? (
+            <PanelLeftOpen size={16} />
+          ) : (
+            <PanelLeftClose size={16} />
+          )}
         </button>
       </div>
 
@@ -100,7 +102,7 @@ export function Sidebar() {
         <div className="px-3 pb-3">
           <nav className="space-y-1">
             <button className="w-full flex items-center gap-3 p-2 text-sm text-gray-300 hover:bg-gray-800 rounded-md transition-colors">
-              <MessageSquare size={16} />
+              <MessageCircle size={16} />
               <span>Chats</span>
             </button>
             <button
@@ -111,7 +113,7 @@ export function Sidebar() {
                   : "text-gray-300 hover:bg-gray-800"
               }`}
             >
-              <Folder size={16} />
+              <Briefcase size={16} />
               <span>Projects</span>
             </button>
           </nav>
