@@ -6,8 +6,10 @@ import {
   useState,
   useEffect,
   ReactNode,
+  useCallback,
 } from "react";
 import { useRouter, usePathname } from "next/navigation";
+import { useUser } from "@clerk/nextjs";
 
 export interface Message {
   id: string;
@@ -76,7 +78,7 @@ interface ChatProviderProps {
   children: ReactNode;
 }
 
-const API_BASE_URL = "http://localhost:3001";
+const API_BASE_URL = "http://localhost:8000";
 
 export function ChatProvider({ children }: ChatProviderProps) {
   const [chats, setChats] = useState<Chat[]>([]);
@@ -85,6 +87,7 @@ export function ChatProvider({ children }: ChatProviderProps) {
   const [currentProjectId, setCurrentProjectId] = useState<string | null>(null); // 🆕 Current project state
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { user } = useUser();
 
   const router = useRouter();
   const pathname = usePathname();
@@ -124,7 +127,15 @@ export function ChatProvider({ children }: ChatProviderProps) {
   const loadChats = async () => {
     try {
       setError(null);
-      const response = await fetch(`${API_BASE_URL}/chats`);
+
+      if (!user?.id) {
+        console.log("No user logged in yet");
+        return;
+      }
+
+      const response = await fetch(
+        `${API_BASE_URL}/api/chats?clerk_id=${user.id}`
+      );
       if (!response.ok) {
         throw new Error("Failed to load chats");
       }
@@ -140,7 +151,15 @@ export function ChatProvider({ children }: ChatProviderProps) {
   const loadProjects = async () => {
     try {
       setError(null);
-      const response = await fetch(`${API_BASE_URL}/projects`);
+
+      if (!user?.id) {
+        console.log("No user logged in yet");
+        return;
+      }
+
+      const response = await fetch(
+        `${API_BASE_URL}/api/projects?clerk_id=${user.id}`
+      );
       if (!response.ok) {
         throw new Error("Failed to load projects");
       }
@@ -156,20 +175,22 @@ export function ChatProvider({ children }: ChatProviderProps) {
   const createProject = async (name: string, description: string) => {
     try {
       setError(null);
-      const newProject: Project = {
-        id: Date.now().toString(),
-        name,
-        description,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
 
-      const response = await fetch(`${API_BASE_URL}/projects`, {
+      if (!user?.id) {
+        setError("User not logged in");
+        return;
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/projects`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(newProject),
+        body: JSON.stringify({
+          name,
+          description,
+          clerk_id: user.id,
+        }),
       });
 
       if (!response.ok) {
@@ -193,21 +214,22 @@ export function ChatProvider({ children }: ChatProviderProps) {
   const createNewChat = async (projectId: string | null = null) => {
     try {
       setError(null);
-      const newChat: Chat = {
-        id: Date.now().toString(),
-        projectId, // 🆕 Set the projectId
-        title: "New Chat",
-        messages: [],
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
 
-      const response = await fetch(`${API_BASE_URL}/chats`, {
+      if (!user?.id) {
+        setError("User not logged in");
+        return;
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/chats`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(newChat),
+        body: JSON.stringify({
+          title: "New Chat",
+          project_id: projectId,
+          clerk_id: user.id,
+        }),
       });
 
       if (!response.ok) {
@@ -230,22 +252,49 @@ export function ChatProvider({ children }: ChatProviderProps) {
     }
   };
 
-  const switchToChat = (chatId: string) => {
-    setCurrentChatId(chatId);
-  };
+  // Then wrap your switchToChat function:
+  const switchToChat = useCallback(
+    async (chatId: string) => {
+      setCurrentChatId(chatId);
+
+      // Load messages for this chat
+      if (user?.id) {
+        try {
+          const response = await fetch(
+            `${API_BASE_URL}/api/chats/${chatId}/messages`
+          );
+          if (response.ok) {
+            const messages = await response.json();
+
+            setChats((prev) =>
+              prev.map((chat) =>
+                chat.id === chatId ? { ...chat, messages } : chat
+              )
+            );
+          }
+        } catch (err) {
+          console.error("Error loading messages:", err);
+        }
+      }
+    },
+    [user?.id]
+  ); // ← Only depends on user.id
 
   const getCurrentChat = () => {
     return chats.find((chat) => chat.id === currentChatId);
   };
 
   const updateChatInServer = async (updatedChat: Chat) => {
-    const response = await fetch(`${API_BASE_URL}/chats/${updatedChat.id}`, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(updatedChat),
-    });
+    const response = await fetch(
+      `${API_BASE_URL}/api/chats/${updatedChat.id}`,
+      {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(updatedChat),
+      }
+    );
 
     if (!response.ok) {
       throw new Error("Failed to update chat");

@@ -2,28 +2,44 @@
 
 import { useState } from "react";
 import { X } from "lucide-react";
-import { useChatContext } from "../context/ChatContext";
+
+interface Project {
+  id: string;
+  name: string;
+  description: string;
+  created_at: string;
+  updated_at: string;
+  clerk_id: string;
+}
 
 interface CreateProjectModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onCreateProject: (name: string, description: string) => Promise<Project>;
+  isLoading: boolean;
 }
 
 export function CreateProjectModal({
   isOpen,
   onClose,
+  onCreateProject,
+  isLoading,
 }: CreateProjectModalProps) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const { createProject, isLoading } = useChatContext();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (name.trim()) {
-      await createProject(name.trim(), description.trim());
-      setName("");
-      setDescription("");
-      onClose();
+      try {
+        await onCreateProject(name.trim(), description.trim());
+        setName("");
+        setDescription("");
+        onClose();
+      } catch (err) {
+        // Error handling is done by parent component
+        console.error("Failed to create project:", err);
+      }
     }
   };
 
@@ -44,7 +60,8 @@ export function CreateProjectModal({
           </h2>
           <button
             onClick={handleClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
+            disabled={isLoading}
+            className="text-gray-400 hover:text-gray-600 transition-colors disabled:opacity-50"
           >
             <X size={24} />
           </button>
@@ -64,7 +81,8 @@ export function CreateProjectModal({
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Enter project name"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              disabled={isLoading}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50"
               required
             />
           </div>
@@ -82,7 +100,8 @@ export function CreateProjectModal({
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Describe your project"
               rows={3}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+              disabled={isLoading}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none disabled:opacity-50"
             />
           </div>
 
@@ -90,7 +109,8 @@ export function CreateProjectModal({
             <button
               type="button"
               onClick={handleClose}
-              className="flex-1 px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+              disabled={isLoading}
+              className="flex-1 px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 disabled:bg-gray-300 disabled:text-gray-500 rounded-lg transition-colors"
             >
               Cancel
             </button>

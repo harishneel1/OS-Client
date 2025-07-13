@@ -1,11 +1,19 @@
 import { Sidebar } from "../../components/layout/Sidebar";
 import { ChatProvider } from "../../components/context/ChatContext";
+import { auth } from "@clerk/nextjs/server";
+import { redirect } from "next/navigation";
 
-export default function DashboardLayout({
+export default async function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const { userId } = await auth();
+
+  if (!userId) {
+    redirect("/sign-in");
+  }
+
   return (
     <ChatProvider>
       <div className="flex h-screen bg-gray-50">

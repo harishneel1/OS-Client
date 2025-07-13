@@ -2,19 +2,54 @@
 
 import { useState } from "react";
 import { Plus, Search } from "lucide-react";
-import { useChatContext } from "../context/ChatContext";
 import { useRouter } from "next/navigation";
 import { CreateProjectModal } from "./CreateProjectModal";
 
-export function ProjectsGrid() {
+interface Project {
+  id: string;
+  name: string;
+  description: string;
+  created_at: string;
+  updated_at: string;
+  clerk_id: string;
+}
+
+interface ProjectsGridProps {
+  projects: Project[];
+  loading: boolean;
+  error: string | null;
+  onCreateProject: (name: string, description: string) => Promise<Project>;
+}
+
+export function ProjectsGrid({
+  projects,
+  loading,
+  error,
+  onCreateProject,
+}: ProjectsGridProps) {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [isCreating, setIsCreating] = useState(false);
 
-  const { projects } = useChatContext();
   const router = useRouter();
 
   const handleProjectClick = (projectId: string) => {
     router.push(`/projects/${projectId}`);
+  };
+
+  const handleCreateProject = async (name: string, description: string) => {
+    try {
+      setIsCreating(true);
+      const newProject = await onCreateProject(name, description);
+      setShowCreateModal(false);
+      // Optionally navigate to the new project
+      router.push(`/projects/${newProject.id}`);
+    } catch (err) {
+      // Error is handled by parent component
+      console.error("Failed to create project:", err);
+    } finally {
+      setIsCreating(false);
+    }
   };
 
   // Filter projects based on search query
@@ -32,7 +67,8 @@ export function ProjectsGrid() {
           <h1 className="text-2xl font-semibold text-gray-900">Projects</h1>
           <button
             onClick={() => setShowCreateModal(true)}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors text-sm font-medium"
+            disabled={loading}
+            className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors text-sm font-medium"
           >
             <Plus size={16} />
             New project
@@ -50,14 +86,26 @@ export function ProjectsGrid() {
             placeholder="Search projects..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-gray-500 text-gray-900"
+            disabled={loading}
+            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-gray-500 text-gray-900 disabled:opacity-50"
           />
         </div>
       </div>
 
+      {/* Error Display */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-3 m-4">
+          <span className="text-red-700 text-sm">{error}</span>
+        </div>
+      )}
+
       {/* Projects Grid */}
       <div className="flex-1 overflow-y-auto px-8 py-6">
-        {filteredProjects.length === 0 ? (
+        {loading ? (
+          <div className="text-center py-16">
+            <div className="text-gray-500">Loading projects...</div>
+          </div>
+        ) : filteredProjects.length === 0 ? (
           <div className="text-center py-16">
             {searchQuery ? (
               <div>
@@ -103,6 +151,9 @@ export function ProjectsGrid() {
                     </p>
                   )}
                 </div>
+                <div className="text-xs text-gray-500">
+                  Created {new Date(project.created_at).toLocaleDateString()}
+                </div>
               </div>
             ))}
           </div>
@@ -113,6 +164,8 @@ export function ProjectsGrid() {
       <CreateProjectModal
         isOpen={showCreateModal}
         onClose={() => setShowCreateModal(false)}
+        onCreateProject={handleCreateProject}
+        isLoading={isCreating}
       />
     </div>
   );

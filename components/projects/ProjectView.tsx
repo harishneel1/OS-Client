@@ -1,9 +1,25 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import React, { useState } from "react";
 import { Settings, Upload, FileText, Plus, MessageSquare } from "lucide-react";
-import { useChatContext } from "../context/ChatContext";
+
+interface Project {
+  id: string;
+  name: string;
+  description: string;
+  created_at: string;
+  updated_at: string;
+  clerk_id: string;
+}
+
+interface Chat {
+  id: string;
+  project_id: string | null;
+  title: string;
+  created_at: string;
+  updated_at: string;
+  clerk_id: string;
+}
 
 interface RAGSettings {
   embeddingModel: string;
@@ -23,11 +39,22 @@ interface RAGSettings {
 }
 
 interface ProjectViewProps {
-  projectId: string;
+  project: Project;
+  projectChats: Chat[];
+  error: string | null;
+  isCreatingChat: boolean;
+  onCreateNewChat: () => void;
+  onChatClick: (chatId: string) => void;
 }
 
-export function ProjectView({ projectId }: ProjectViewProps) {
-  const router = useRouter();
+export function ProjectView({
+  project,
+  projectChats,
+  error,
+  isCreatingChat,
+  onCreateNewChat,
+  onChatClick,
+}: ProjectViewProps) {
   const [activeTab, setActiveTab] = useState<"documents" | "settings">(
     "documents"
   );
@@ -47,22 +74,6 @@ export function ProjectView({ projectId }: ProjectViewProps) {
       keywordWeight: 0.3,
     },
   });
-
-  const {
-    getProjectChats,
-    getCurrentProject,
-    switchToProject,
-    createNewChat,
-    isLoading,
-  } = useChatContext();
-
-  // Load project data when component mounts
-  useEffect(() => {
-    switchToProject(projectId);
-  }, [projectId, switchToProject]);
-
-  const currentProject = getCurrentProject();
-  const projectChats = getProjectChats(projectId);
 
   const updateSettings = (key: keyof RAGSettings, value: any) => {
     setSettings((prev) => ({
@@ -135,28 +146,11 @@ export function ProjectView({ projectId }: ProjectViewProps) {
 
   const handleApplySettings = () => {
     // This would typically send settings to your backend/context
-    console.log("Applying RAG Settings for project:", projectId, settings);
+    console.log("Applying RAG Settings for project:", project.id, settings);
     alert("RAG Settings Applied Successfully!");
   };
 
-  const handleCreateNewChat = async () => {
-    await createNewChat(projectId);
-  };
-
-  const handleChatClick = (chatId: string) => {
-    router.push(`/projects/${projectId}/chats/${chatId}`);
-  };
-
   const metrics = calculatePerformanceMetrics();
-
-  // Loading state
-  if (!currentProject) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <div className="text-gray-500">Loading project...</div>
-      </div>
-    );
-  }
 
   return (
     <div className="flex h-screen bg-gray-50">
@@ -167,9 +161,9 @@ export function ProjectView({ projectId }: ProjectViewProps) {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-bold text-gray-900">
-                {currentProject.name}
+                {project.name}
               </h1>
-              <p className="text-gray-600 mt-1">{currentProject.description}</p>
+              <p className="text-gray-600 mt-1">{project.description}</p>
             </div>
             <div className="flex items-center gap-2">
               <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
@@ -179,18 +173,25 @@ export function ProjectView({ projectId }: ProjectViewProps) {
           </div>
         </div>
 
+        {/* Error Display */}
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-3 m-4">
+            <span className="text-red-700 text-sm">{error}</span>
+          </div>
+        )}
+
         {/* Chat History Section */}
         <div className="flex-1 overflow-y-auto p-6">
           <div className="max-w-4xl mx-auto">
             {/* Create New Chat Button */}
             <div className="mb-6">
               <button
-                onClick={handleCreateNewChat}
-                disabled={isLoading}
+                onClick={onCreateNewChat}
+                disabled={isCreatingChat}
                 className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
               >
                 <Plus size={16} />
-                {isLoading ? "Creating..." : "Create new chat"}
+                {isCreatingChat ? "Creating..." : "Create new chat"}
               </button>
             </div>
 
@@ -215,12 +216,12 @@ export function ProjectView({ projectId }: ProjectViewProps) {
                     Start your first conversation in this project
                   </p>
                   <button
-                    onClick={handleCreateNewChat}
-                    disabled={isLoading}
+                    onClick={onCreateNewChat}
+                    disabled={isCreatingChat}
                     className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-lg transition-colors"
                   >
                     <Plus size={16} className="inline mr-2" />
-                    {isLoading ? "Creating..." : "Create new chat"}
+                    {isCreatingChat ? "Creating..." : "Create new chat"}
                   </button>
                 </div>
               ) : (
@@ -228,13 +229,13 @@ export function ProjectView({ projectId }: ProjectViewProps) {
                   {projectChats
                     .sort(
                       (a, b) =>
-                        new Date(b.updatedAt).getTime() -
-                        new Date(a.updatedAt).getTime()
+                        new Date(b.updated_at).getTime() -
+                        new Date(a.updated_at).getTime()
                     )
                     .map((chat) => (
                       <div
                         key={chat.id}
-                        onClick={() => handleChatClick(chat.id)}
+                        onClick={() => onChatClick(chat.id)}
                         className="bg-white rounded-lg border border-gray-200 hover:border-gray-300 hover:shadow-md transition-all cursor-pointer p-4"
                       >
                         <div className="flex items-start justify-between">
@@ -243,10 +244,9 @@ export function ProjectView({ projectId }: ProjectViewProps) {
                               {chat.title}
                             </h3>
                             <div className="flex items-center gap-4 text-sm text-gray-500">
-                              <span>{chat.messages.length} messages</span>
                               <span>
                                 Updated{" "}
-                                {new Date(chat.updatedAt).toLocaleDateString()}
+                                {new Date(chat.updated_at).toLocaleDateString()}
                               </span>
                             </div>
                           </div>
