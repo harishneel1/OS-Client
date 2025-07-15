@@ -42,7 +42,6 @@ export function ProjectsGrid({
       setIsCreating(true);
       const newProject = await onCreateProject(name, description);
       setShowCreateModal(false);
-      // Optionally navigate to the new project
       router.push(`/projects/${newProject.id}`);
     } catch (err) {
       // Error is handled by parent component

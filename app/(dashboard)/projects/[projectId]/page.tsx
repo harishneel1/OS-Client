@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { use, useEffect, useState } from "react";
 import { useUser } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import { ProjectView } from "../../../../components/projects/ProjectView";
@@ -26,13 +26,14 @@ interface Chat {
 const API_BASE_URL = "http://localhost:8000";
 
 interface ProjectPageProps {
-  params: {
+  params: Promise<{
     projectId: string;
-  };
+  }>;
 }
 
 export default function ProjectPage({ params }: ProjectPageProps) {
-  const { projectId } = params;
+  const { projectId } = use(params);
+
   const [project, setProject] = useState<Project | null>(null);
   const [projectChats, setProjectChats] = useState<Chat[]>([]);
   const [loading, setLoading] = useState(true);
@@ -48,21 +49,15 @@ export default function ProjectPage({ params }: ProjectPageProps) {
       if (!user?.id) return;
 
       const response = await fetch(
-        `${API_BASE_URL}/api/projects?clerk_id=${user.id}`
+        `${API_BASE_URL}/api/projects/${projectId}?clerk_id=${user.id}`
       );
 
       if (!response.ok) {
-        throw new Error("Failed to load projects");
+        throw new Error("Failed to load project");
       }
 
-      const projects = await response.json();
-      const currentProject = projects.find((p: Project) => p.id === projectId);
-
-      if (!currentProject) {
-        throw new Error("Project not found");
-      }
-
-      setProject(currentProject);
+      const result = await response.json();
+      setProject(result.data);
     } catch (err) {
       setError("Failed to load project details.");
       console.error("Error loading project:", err);
@@ -80,8 +75,9 @@ export default function ProjectPage({ params }: ProjectPageProps) {
         throw new Error("Failed to load project chats");
       }
 
-      const chats = await response.json();
-      setProjectChats(chats);
+      const result = await response.json();
+      console.log(result, "result");
+      setProjectChats(result.data);
     } catch (err) {
       setError("Failed to load project chats.");
       console.error("Error loading project chats:", err);
@@ -115,7 +111,8 @@ export default function ProjectPage({ params }: ProjectPageProps) {
         throw new Error("Failed to create chat");
       }
 
-      const savedChat = await response.json();
+      const result = await response.json();
+      const savedChat = result.data;
 
       // Navigate to the new chat immediately
       router.push(`/projects/${projectId}/chats/${savedChat.id}`);
@@ -132,17 +129,17 @@ export default function ProjectPage({ params }: ProjectPageProps) {
     router.push(`/projects/${projectId}/chats/${chatId}`);
   };
 
-  // Load data on mount
+  // Load data when user is available
   useEffect(() => {
     const loadData = async () => {
-      setLoading(true);
-      await Promise.all([loadProject(), loadProjectChats()]);
-      setLoading(false);
+      if (user?.id) {
+        setLoading(true);
+        await Promise.all([loadProject(), loadProjectChats()]);
+        setLoading(false);
+      }
     };
 
-    if (user?.id) {
-      loadData();
-    }
+    loadData();
   }, [user?.id, projectId]);
 
   if (loading) {

@@ -1,5 +1,13 @@
-import { Message } from "../context/ChatContext";
 import { MessageItem } from "./MessageItem";
+
+interface Message {
+  id: string;
+  content: string;
+  role: "user" | "assistant";
+  created_at: string;
+  chat_id: string;
+  clerk_id: string;
+}
 
 interface MessageListProps {
   messages: Message[];

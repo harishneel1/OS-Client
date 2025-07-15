@@ -1,4 +1,11 @@
-import { Message } from "../context/ChatContext";
+interface Message {
+  id: string;
+  content: string;
+  role: "user" | "assistant";
+  created_at: string;
+  chat_id: string;
+  clerk_id: string;
+}
 
 interface MessageItemProps {
   message: Message;
@@ -20,7 +27,7 @@ export function MessageItem({ message }: MessageItemProps) {
             isUser ? "text-blue-200" : "text-gray-500"
           }`}
         >
-          {new Date(message.timestamp).toLocaleTimeString()}
+          {new Date(message.created_at).toLocaleTimeString()}
         </p>
       </div>
     </div>

@@ -4,18 +4,17 @@ import { useState } from "react";
 import { Send } from "lucide-react";
 
 interface ChatInputProps {
-  chatId: string;
-  onSendMessage: (chatId: string, message: string) => void;
+  onSendMessage: (message: string) => Promise<void>;
   disabled?: boolean;
 }
 
-export function ChatInput({ onSendMessage, disabled, chatId }: ChatInputProps) {
+export function ChatInput({ onSendMessage, disabled }: ChatInputProps) {
   const [message, setMessage] = useState("");
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (message.trim() && !disabled) {
-      onSendMessage(chatId, message.trim());
+      await onSendMessage(message.trim());
       setMessage("");
     }
   };
