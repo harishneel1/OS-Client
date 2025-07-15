@@ -1,5 +1,4 @@
 import { Sidebar } from "../../components/layout/Sidebar";
-import { ChatProvider } from "../../components/context/ChatContext";
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 
@@ -15,11 +14,9 @@ export default async function DashboardLayout({
   }
 
   return (
-    <ChatProvider>
-      <div className="flex h-screen bg-gray-50">
-        <Sidebar />
-        <main className="flex-1 flex flex-col">{children}</main>
-      </div>
-    </ChatProvider>
+    <div className="flex h-screen bg-gray-50">
+      <Sidebar />
+      <main className="flex-1 flex flex-col">{children}</main>
+    </div>
   );
 }

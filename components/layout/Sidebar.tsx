@@ -1,6 +1,6 @@
 "use client";
 
-import { UserButton } from "@clerk/nextjs";
+import { UserButton, useUser } from "@clerk/nextjs";
 import {
   Plus,
   MoreHorizontal,
@@ -10,18 +10,56 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { useChatContext } from "../context/ChatContext";
+
+interface Chat {
+  id: string;
+  project_id: string | null;
+  title: string;
+  created_at: string;
+  updated_at: string;
+  clerk_id: string;
+}
 
 export function Sidebar() {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
-
-  const { chats } = useChatContext();
+  const [chats, setChats] = useState<Chat[]>([]);
+  const [loading, setLoading] = useState(true);
+  const { user } = useUser();
 
   const router = useRouter();
   const pathname = usePathname();
+
+  useEffect(() => {
+    const loadChats = async () => {
+      try {
+        if (!user?.id) {
+          setLoading(false);
+          return;
+        }
+
+        const response = await fetch(
+          `http://localhost:8000/api/chats?clerk_id=${user.id}`
+        );
+
+        if (!response.ok) {
+          throw new Error("Failed to load chats");
+        }
+
+        const result = await response.json();
+        setChats(result.data || []);
+      } catch (error) {
+        console.error("Error loading chats:", error);
+        setChats([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadChats();
+  }, [user?.id]);
 
   const handleNewChat = () => {
     router.push("/new");
@@ -29,8 +67,8 @@ export function Sidebar() {
 
   const handleChatClick = (chatId: string) => {
     const chat = chats.find((c) => c.id === chatId);
-    if (chat?.projectId) {
-      router.push(`/projects/${chat.projectId}/chats/${chatId}`);
+    if (chat?.project_id) {
+      router.push(`/projects/${chat.project_id}/chats/${chatId}`);
     } else {
       router.push(`/chats/${chatId}`);
     }
@@ -60,7 +98,8 @@ export function Sidebar() {
 
   // Get all chats sorted by most recent activity
   const recentChats = [...chats].sort(
-    (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+    (a, b) =>
+      new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
   );
 
   return (
