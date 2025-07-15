@@ -40,7 +40,8 @@ export default function ProjectsPage() {
       }
 
       const projectsData = await response.json();
-      setProjects(projectsData);
+      const { data } = projectsData || {};
+      setProjects(data);
     } catch (err) {
       setError("Failed to load projects.");
       console.error("Error loading projects:", err);
@@ -74,7 +75,8 @@ export default function ProjectsPage() {
         throw new Error("Failed to create project");
       }
 
-      const savedProject = await response.json();
+      const data = await response.json();
+      const savedProject = data?.data || {};
       setProjects((prev) => [savedProject, ...prev]);
 
       return savedProject;
