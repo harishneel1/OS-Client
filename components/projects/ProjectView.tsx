@@ -21,62 +21,115 @@ interface Chat {
   clerk_id: string;
 }
 
-interface RAGSettings {
-  embeddingModel: string;
-  ragStrategy: "basic" | "hybrid" | "multi-query-vector" | "multi-query-hybrid";
-  chunksPerSearch: number;
-  finalContextSize: number;
-  similarityThreshold: number;
-  numberOfQueries: number;
-  reranking: {
-    enabled: boolean;
-    model: string;
-  };
-  hybridSearch: {
-    vectorWeight: number;
-    keywordWeight: number;
-  };
+interface ProjectSettings {
+  id: string;
+  project_id: string;
+  embedding_model: string;
+  rag_strategy: string;
+  chunks_per_search: number;
+  final_context_size: number;
+  similarity_threshold: number;
+  number_of_queries: number;
+  reranking_enabled: boolean;
+  reranking_model: string;
+  vector_weight: number;
+  keyword_weight: number;
+  created_at: string;
+  updated_at: string;
 }
 
 interface ProjectViewProps {
   project: Project;
   projectChats: Chat[];
+  projectSettings: ProjectSettings | null;
   error: string | null;
+  settingsError: string | null;
+  settingsLoading: boolean;
   isCreatingChat: boolean;
   onCreateNewChat: () => void;
   onChatClick: (chatId: string) => void;
+  onSaveSettings: (settings: Partial<ProjectSettings>) => void;
 }
 
 export function ProjectView({
   project,
   projectChats,
+  projectSettings,
   error,
+  settingsError,
+  settingsLoading,
   isCreatingChat,
   onCreateNewChat,
   onChatClick,
+  onSaveSettings,
 }: ProjectViewProps) {
   const [activeTab, setActiveTab] = useState<"documents" | "settings">(
     "documents"
   );
-  const [settings, setSettings] = useState<RAGSettings>({
-    embeddingModel: "text-embedding-3-large",
-    ragStrategy: "basic",
-    chunksPerSearch: 20,
-    finalContextSize: 5,
-    similarityThreshold: 0.8,
-    numberOfQueries: 5,
-    reranking: {
-      enabled: false,
-      model: "ms-marco-MiniLM-L-12-v2",
-    },
-    hybridSearch: {
-      vectorWeight: 0.7,
-      keywordWeight: 0.3,
-    },
+
+  // Initialize local settings state with real data or defaults
+  const [localSettings, setLocalSettings] = useState(() => {
+    if (projectSettings) {
+      return {
+        embeddingModel: projectSettings.embedding_model,
+        ragStrategy: projectSettings.rag_strategy,
+        chunksPerSearch: projectSettings.chunks_per_search,
+        finalContextSize: projectSettings.final_context_size,
+        similarityThreshold: projectSettings.similarity_threshold,
+        numberOfQueries: projectSettings.number_of_queries,
+        reranking: {
+          enabled: projectSettings.reranking_enabled,
+          model: projectSettings.reranking_model,
+        },
+        hybridSearch: {
+          vectorWeight: projectSettings.vector_weight,
+          keywordWeight: projectSettings.keyword_weight,
+        },
+      };
+    }
+    // Default settings if none loaded yet
+    return {
+      embeddingModel: "text-embedding-3-large",
+      ragStrategy: "basic",
+      chunksPerSearch: 20,
+      finalContextSize: 5,
+      similarityThreshold: 0.8,
+      numberOfQueries: 5,
+      reranking: {
+        enabled: false,
+        model: "ms-marco-MiniLM-L-12-v2",
+      },
+      hybridSearch: {
+        vectorWeight: 0.7,
+        keywordWeight: 0.3,
+      },
+    };
   });
 
-  const updateSettings = (key: keyof RAGSettings, value: any) => {
-    setSettings((prev) => ({
+  // Update local settings when projectSettings changes
+  React.useEffect(() => {
+    if (projectSettings) {
+      setLocalSettings({
+        embeddingModel: projectSettings.embedding_model,
+        ragStrategy: projectSettings.rag_strategy,
+        chunksPerSearch: projectSettings.chunks_per_search,
+        finalContextSize: projectSettings.final_context_size,
+        similarityThreshold: projectSettings.similarity_threshold,
+        numberOfQueries: projectSettings.number_of_queries,
+        reranking: {
+          enabled: projectSettings.reranking_enabled,
+          model: projectSettings.reranking_model,
+        },
+        hybridSearch: {
+          vectorWeight: projectSettings.vector_weight,
+          keywordWeight: projectSettings.keyword_weight,
+        },
+      });
+    }
+  }, [projectSettings]);
+
+  const updateSettings = (key: string, value: any) => {
+    setLocalSettings((prev) => ({
       ...prev,
       [key]: value,
     }));
@@ -87,7 +140,7 @@ export function ProjectView({
     key: string,
     value: any
   ) => {
-    setSettings((prev) => ({
+    setLocalSettings((prev) => ({
       ...prev,
       [category]: {
         ...prev[category],
@@ -97,7 +150,7 @@ export function ProjectView({
   };
 
   const updateVectorWeight = (weight: number) => {
-    setSettings((prev) => ({
+    setLocalSettings((prev) => ({
       ...prev,
       hybridSearch: {
         vectorWeight: weight,
@@ -108,7 +161,7 @@ export function ProjectView({
 
   const calculatePerformanceMetrics = () => {
     const { ragStrategy, chunksPerSearch, numberOfQueries, reranking } =
-      settings;
+      localSettings;
 
     let totalChunks = chunksPerSearch;
     let afterDedupe = chunksPerSearch;
@@ -145,9 +198,21 @@ export function ProjectView({
   };
 
   const handleApplySettings = () => {
-    // This would typically send settings to your backend/context
-    console.log("Applying RAG Settings for project:", project.id, settings);
-    alert("RAG Settings Applied Successfully!");
+    // Convert local settings format to API format
+    const apiSettings = {
+      embedding_model: localSettings.embeddingModel,
+      rag_strategy: localSettings.ragStrategy,
+      chunks_per_search: localSettings.chunksPerSearch,
+      final_context_size: localSettings.finalContextSize,
+      similarity_threshold: localSettings.similarityThreshold,
+      number_of_queries: localSettings.numberOfQueries,
+      reranking_enabled: localSettings.reranking.enabled,
+      reranking_model: localSettings.reranking.model,
+      vector_weight: localSettings.hybridSearch.vectorWeight,
+      keyword_weight: localSettings.hybridSearch.keywordWeight,
+    };
+
+    onSaveSettings(apiSettings);
   };
 
   const metrics = calculatePerformanceMetrics();
@@ -404,319 +469,357 @@ export function ProjectView({
             </div>
           ) : (
             <div className="p-4 space-y-6">
-              {/* Embedding Model */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Embedding Model
-                </label>
-                <select
-                  value={settings.embeddingModel}
-                  onChange={(e) =>
-                    updateSettings("embeddingModel", e.target.value)
-                  }
-                  className="w-full p-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                >
-                  <option value="text-embedding-3-large">
-                    text-embedding-3-large
-                  </option>
-                  <option value="text-embedding-3-small">
-                    text-embedding-3-small
-                  </option>
-                  <option value="text-embedding-ada-002">
-                    text-embedding-ada-002
-                  </option>
-                </select>
-                <p className="text-xs text-gray-500 mt-1">
-                  🔒 Locked after first document upload
-                </p>
-              </div>
-
-              {/* RAG Strategy */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  RAG Strategy
-                </label>
-                <div className="space-y-2">
-                  {[
-                    {
-                      value: "basic",
-                      label: "Basic Vector Search",
-                      description: "Simple semantic search",
-                    },
-                    {
-                      value: "hybrid",
-                      label: "Hybrid Search (Vector + BM25)",
-                      description: "Semantic + keyword matching",
-                    },
-                    {
-                      value: "multi-query-vector",
-                      label: "Multi-Query (Vector Only)",
-                      description: "Multiple queries, vector search",
-                    },
-                    {
-                      value: "multi-query-hybrid",
-                      label: "Multi-Query (Hybrid)",
-                      description: "Multiple queries, hybrid search",
-                    },
-                  ].map((strategy) => (
-                    <label
-                      key={strategy.value}
-                      className="flex items-start space-x-3 p-2 hover:bg-gray-50 rounded cursor-pointer"
-                    >
-                      <input
-                        type="radio"
-                        name="ragStrategy"
-                        value={strategy.value}
-                        checked={settings.ragStrategy === strategy.value}
-                        onChange={(e) =>
-                          updateSettings("ragStrategy", e.target.value)
-                        }
-                        className="mt-1"
-                      />
-                      <div>
-                        <div className="text-sm font-medium text-gray-900">
-                          {strategy.label}
-                        </div>
-                        <div className="text-xs text-gray-500">
-                          {strategy.description}
-                        </div>
-                      </div>
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              {/* Retrieval Parameters */}
-              <div>
-                <h3 className="text-sm font-medium text-gray-700 mb-3">
-                  Retrieval Parameters
-                </h3>
-
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-xs text-gray-600 mb-1">
-                      Chunks per Search: {settings.chunksPerSearch}
-                    </label>
-                    <input
-                      type="range"
-                      min="5"
-                      max="50"
-                      value={settings.chunksPerSearch}
-                      onChange={(e) =>
-                        updateSettings(
-                          "chunksPerSearch",
-                          parseInt(e.target.value)
-                        )
-                      }
-                      className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs text-gray-600 mb-1">
-                      Final Context Size: {settings.finalContextSize}
-                    </label>
-                    <input
-                      type="range"
-                      min="3"
-                      max="15"
-                      value={settings.finalContextSize}
-                      onChange={(e) =>
-                        updateSettings(
-                          "finalContextSize",
-                          parseInt(e.target.value)
-                        )
-                      }
-                      className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs text-gray-600 mb-1">
-                      Similarity Threshold: {settings.similarityThreshold}
-                    </label>
-                    <input
-                      type="range"
-                      min="0.5"
-                      max="0.95"
-                      step="0.05"
-                      value={settings.similarityThreshold}
-                      onChange={(e) =>
-                        updateSettings(
-                          "similarityThreshold",
-                          parseFloat(e.target.value)
-                        )
-                      }
-                      className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Multi-Query Settings */}
-              {(settings.ragStrategy === "multi-query-vector" ||
-                settings.ragStrategy === "multi-query-hybrid") && (
-                <div>
-                  <h3 className="text-sm font-medium text-gray-700 mb-3">
-                    Multi-Query Settings
-                  </h3>
-                  <div>
-                    <label className="block text-xs text-gray-600 mb-1">
-                      Number of Queries: {settings.numberOfQueries}
-                    </label>
-                    <input
-                      type="range"
-                      min="3"
-                      max="7"
-                      value={settings.numberOfQueries}
-                      onChange={(e) =>
-                        updateSettings(
-                          "numberOfQueries",
-                          parseInt(e.target.value)
-                        )
-                      }
-                      className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
-                    />
-                  </div>
+              {/* Settings Error Display */}
+              {settingsError && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                  <span className="text-red-700 text-sm">{settingsError}</span>
                 </div>
               )}
 
-              {/* Reranking */}
-              <div>
-                <h3 className="text-sm font-medium text-gray-700 mb-3">
-                  Reranking
-                </h3>
-                <div className="space-y-3">
-                  <label className="flex items-center space-x-2">
-                    <input
-                      type="checkbox"
-                      checked={settings.reranking.enabled}
-                      onChange={(e) =>
-                        updateNestedSettings(
-                          "reranking",
-                          "enabled",
-                          e.target.checked
-                        )
-                      }
-                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                    />
-                    <span className="text-sm text-gray-700">
-                      Enable Reranking
-                    </span>
-                  </label>
-
-                  {settings.reranking.enabled && (
-                    <div>
-                      <label className="block text-xs text-gray-600 mb-1">
-                        Reranker Model
-                      </label>
-                      <select
-                        value={settings.reranking.model}
-                        onChange={(e) =>
-                          updateNestedSettings(
-                            "reranking",
-                            "model",
-                            e.target.value
-                          )
-                        }
-                        className="w-full p-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      >
-                        <option value="ms-marco-MiniLM-L-12-v2">
-                          ms-marco-MiniLM-L-12-v2
-                        </option>
-                        <option value="bge-reranker-base">
-                          bge-reranker-base
-                        </option>
-                        <option value="bge-reranker-large">
-                          bge-reranker-large
-                        </option>
-                      </select>
-                    </div>
-                  )}
+              {/* Loading State */}
+              {settingsLoading && (
+                <div className="text-center py-8">
+                  <div className="text-gray-500">Loading...</div>
                 </div>
-              </div>
+              )}
 
-              {/* Hybrid Search Settings */}
-              {(settings.ragStrategy === "hybrid" ||
-                settings.ragStrategy === "multi-query-hybrid") && (
-                <div>
+              {/* Settings Form - disabled when loading */}
+              <div
+                className={
+                  settingsLoading ? "opacity-50 pointer-events-none" : ""
+                }
+              >
+                {/* Embedding Model */}
+                <div className="mb-6">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Embedding Model
+                  </label>
+                  <select
+                    value={localSettings.embeddingModel}
+                    onChange={(e) =>
+                      updateSettings("embeddingModel", e.target.value)
+                    }
+                    disabled={settingsLoading}
+                    className="w-full p-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50"
+                  >
+                    <option value="text-embedding-3-large">
+                      text-embedding-3-large
+                    </option>
+                    <option value="text-embedding-3-small">
+                      text-embedding-3-small
+                    </option>
+                    <option value="text-embedding-ada-002">
+                      text-embedding-ada-002
+                    </option>
+                  </select>
+                  <p className="text-xs text-gray-500 mt-1">
+                    🔒 Locked after first document upload
+                  </p>
+                </div>
+
+                {/* RAG Strategy */}
+                <div className="mb-6">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    RAG Strategy
+                  </label>
+                  <div className="space-y-2">
+                    {[
+                      {
+                        value: "basic",
+                        label: "Basic Vector Search",
+                        description: "Simple semantic search",
+                      },
+                      {
+                        value: "hybrid",
+                        label: "Hybrid Search (Vector + BM25)",
+                        description: "Semantic + keyword matching",
+                      },
+                      {
+                        value: "multi-query-vector",
+                        label: "Multi-Query (Vector Only)",
+                        description: "Multiple queries, vector search",
+                      },
+                      {
+                        value: "multi-query-hybrid",
+                        label: "Multi-Query (Hybrid)",
+                        description: "Multiple queries, hybrid search",
+                      },
+                    ].map((strategy) => (
+                      <label
+                        key={strategy.value}
+                        className="flex items-start space-x-3 p-2 hover:bg-gray-50 rounded cursor-pointer"
+                      >
+                        <input
+                          type="radio"
+                          name="ragStrategy"
+                          value={strategy.value}
+                          checked={localSettings.ragStrategy === strategy.value}
+                          onChange={(e) =>
+                            updateSettings("ragStrategy", e.target.value)
+                          }
+                          disabled={settingsLoading}
+                          className="mt-1"
+                        />
+                        <div>
+                          <div className="text-sm font-medium text-gray-900">
+                            {strategy.label}
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            {strategy.description}
+                          </div>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Retrieval Parameters */}
+                <div className="mb-6">
                   <h3 className="text-sm font-medium text-gray-700 mb-3">
-                    Hybrid Search
+                    Retrieval Parameters
                   </h3>
-                  <div className="space-y-3">
+
+                  <div className="space-y-4">
                     <div>
                       <label className="block text-xs text-gray-600 mb-1">
-                        Vector Weight:{" "}
-                        {settings.hybridSearch.vectorWeight.toFixed(1)}
+                        Chunks per Search: {localSettings.chunksPerSearch}
                       </label>
                       <input
                         type="range"
-                        min="0.1"
-                        max="0.9"
-                        step="0.1"
-                        value={settings.hybridSearch.vectorWeight}
+                        min="5"
+                        max="50"
+                        value={localSettings.chunksPerSearch}
                         onChange={(e) =>
-                          updateVectorWeight(parseFloat(e.target.value))
+                          updateSettings(
+                            "chunksPerSearch",
+                            parseInt(e.target.value)
+                          )
                         }
-                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
+                        disabled={settingsLoading}
+                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider disabled:opacity-50"
                       />
                     </div>
-                    <div className="text-xs text-gray-500">
-                      Keyword Weight:{" "}
-                      {settings.hybridSearch.keywordWeight.toFixed(1)}{" "}
-                      (auto-calculated)
+
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-1">
+                        Final Context Size: {localSettings.finalContextSize}
+                      </label>
+                      <input
+                        type="range"
+                        min="3"
+                        max="15"
+                        value={localSettings.finalContextSize}
+                        onChange={(e) =>
+                          updateSettings(
+                            "finalContextSize",
+                            parseInt(e.target.value)
+                          )
+                        }
+                        disabled={settingsLoading}
+                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider disabled:opacity-50"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-1">
+                        Similarity Threshold:{" "}
+                        {localSettings.similarityThreshold}
+                      </label>
+                      <input
+                        type="range"
+                        min="0.5"
+                        max="0.95"
+                        step="0.05"
+                        value={localSettings.similarityThreshold}
+                        onChange={(e) =>
+                          updateSettings(
+                            "similarityThreshold",
+                            parseFloat(e.target.value)
+                          )
+                        }
+                        disabled={settingsLoading}
+                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider disabled:opacity-50"
+                      />
                     </div>
                   </div>
                 </div>
-              )}
 
-              {/* Performance Impact */}
-              <div>
-                <h3 className="text-sm font-medium text-gray-700 mb-3">
-                  Performance Impact
-                </h3>
-                <div className="bg-gray-50 p-3 rounded-lg space-y-2 text-xs">
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">
-                      Total Chunks Retrieved:
-                    </span>
-                    <span className="font-medium">~{metrics.totalChunks}</span>
+                {/* Multi-Query Settings */}
+                {(localSettings.ragStrategy === "multi-query-vector" ||
+                  localSettings.ragStrategy === "multi-query-hybrid") && (
+                  <div className="mb-6">
+                    <h3 className="text-sm font-medium text-gray-700 mb-3">
+                      Multi-Query Settings
+                    </h3>
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-1">
+                        Number of Queries: {localSettings.numberOfQueries}
+                      </label>
+                      <input
+                        type="range"
+                        min="3"
+                        max="7"
+                        value={localSettings.numberOfQueries}
+                        onChange={(e) =>
+                          updateSettings(
+                            "numberOfQueries",
+                            parseInt(e.target.value)
+                          )
+                        }
+                        disabled={settingsLoading}
+                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider disabled:opacity-50"
+                      />
+                    </div>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">After Deduplication:</span>
-                    <span className="font-medium">~{metrics.afterDedupe}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Estimated Latency:</span>
-                    <span className="font-medium">~{metrics.latency}ms</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Strategy Level:</span>
-                    <span
-                      className={`font-medium ${
-                        metrics.strategyLevel === "Basic"
-                          ? "text-green-600"
-                          : metrics.strategyLevel === "Intermediate"
-                          ? "text-blue-600"
-                          : metrics.strategyLevel === "Advanced"
-                          ? "text-orange-600"
-                          : "text-red-600"
-                      }`}
-                    >
-                      {metrics.strategyLevel}
-                    </span>
+                )}
+
+                {/* Reranking */}
+                <div className="mb-6">
+                  <h3 className="text-sm font-medium text-gray-700 mb-3">
+                    Reranking
+                  </h3>
+                  <div className="space-y-3">
+                    <label className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        checked={localSettings.reranking.enabled}
+                        onChange={(e) =>
+                          updateNestedSettings(
+                            "reranking",
+                            "enabled",
+                            e.target.checked
+                          )
+                        }
+                        disabled={settingsLoading}
+                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 disabled:opacity-50"
+                      />
+                      <span className="text-sm text-gray-700">
+                        Enable Reranking
+                      </span>
+                    </label>
+
+                    {localSettings.reranking.enabled && (
+                      <div>
+                        <label className="block text-xs text-gray-600 mb-1">
+                          Reranker Model
+                        </label>
+                        <select
+                          value={localSettings.reranking.model}
+                          onChange={(e) =>
+                            updateNestedSettings(
+                              "reranking",
+                              "model",
+                              e.target.value
+                            )
+                          }
+                          disabled={settingsLoading}
+                          className="w-full p-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50"
+                        >
+                          <option value="ms-marco-MiniLM-L-12-v2">
+                            ms-marco-MiniLM-L-12-v2
+                          </option>
+                          <option value="bge-reranker-base">
+                            bge-reranker-base
+                          </option>
+                          <option value="bge-reranker-large">
+                            bge-reranker-large
+                          </option>
+                        </select>
+                      </div>
+                    )}
                   </div>
                 </div>
-              </div>
 
-              {/* Apply Settings Button */}
-              <button
-                onClick={handleApplySettings}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg transition-colors flex items-center justify-center gap-2 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-              >
-                <Settings size={16} />
-                Apply RAG Settings
-              </button>
+                {/* Hybrid Search Settings */}
+                {(localSettings.ragStrategy === "hybrid" ||
+                  localSettings.ragStrategy === "multi-query-hybrid") && (
+                  <div className="mb-6">
+                    <h3 className="text-sm font-medium text-gray-700 mb-3">
+                      Hybrid Search
+                    </h3>
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-xs text-gray-600 mb-1">
+                          Vector Weight:{" "}
+                          {localSettings.hybridSearch.vectorWeight.toFixed(1)}
+                        </label>
+                        <input
+                          type="range"
+                          min="0.1"
+                          max="0.9"
+                          step="0.1"
+                          value={localSettings.hybridSearch.vectorWeight}
+                          onChange={(e) =>
+                            updateVectorWeight(parseFloat(e.target.value))
+                          }
+                          disabled={settingsLoading}
+                          className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider disabled:opacity-50"
+                        />
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        Keyword Weight:{" "}
+                        {localSettings.hybridSearch.keywordWeight.toFixed(1)}{" "}
+                        (auto-calculated)
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Performance Impact */}
+                <div className="mb-6">
+                  <h3 className="text-sm font-medium text-gray-700 mb-3">
+                    Performance Impact
+                  </h3>
+                  <div className="bg-gray-50 p-3 rounded-lg space-y-2 text-xs">
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">
+                        Total Chunks Retrieved:
+                      </span>
+                      <span className="font-medium">
+                        ~{metrics.totalChunks}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">
+                        After Deduplication:
+                      </span>
+                      <span className="font-medium">
+                        ~{metrics.afterDedupe}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Estimated Latency:</span>
+                      <span className="font-medium">~{metrics.latency}ms</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Strategy Level:</span>
+                      <span
+                        className={`font-medium ${
+                          metrics.strategyLevel === "Basic"
+                            ? "text-green-600"
+                            : metrics.strategyLevel === "Intermediate"
+                            ? "text-blue-600"
+                            : metrics.strategyLevel === "Advanced"
+                            ? "text-orange-600"
+                            : "text-red-600"
+                        }`}
+                      >
+                        {metrics.strategyLevel}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Apply Settings Button */}
+                <button
+                  onClick={handleApplySettings}
+                  disabled={settingsLoading}
+                  className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white py-2 px-4 rounded-lg transition-colors flex items-center justify-center gap-2 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                >
+                  <Settings size={16} />
+                  {settingsLoading ? "Applying..." : "Apply RAG Settings"}
+                </button>
+              </div>
             </div>
           )}
         </div>

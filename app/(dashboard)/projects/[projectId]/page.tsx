@@ -23,6 +23,23 @@ interface Chat {
   clerk_id: string;
 }
 
+interface ProjectSettings {
+  id: string;
+  project_id: string;
+  embedding_model: string;
+  rag_strategy: string;
+  chunks_per_search: number;
+  final_context_size: number;
+  similarity_threshold: number;
+  number_of_queries: number;
+  reranking_enabled: boolean;
+  reranking_model: string;
+  vector_weight: number;
+  keyword_weight: number;
+  created_at: string;
+  updated_at: string;
+}
+
 const API_BASE_URL = "http://localhost:8000";
 
 interface ProjectPageProps {
@@ -36,8 +53,12 @@ export default function ProjectPage({ params }: ProjectPageProps) {
 
   const [project, setProject] = useState<Project | null>(null);
   const [projectChats, setProjectChats] = useState<Chat[]>([]);
+  const [projectSettings, setProjectSettings] =
+    useState<ProjectSettings | null>(null);
   const [loading, setLoading] = useState(true);
+  const [settingsLoading, setSettingsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [settingsError, setSettingsError] = useState<string | null>(null);
   const [isCreatingChat, setIsCreatingChat] = useState(false);
 
   const { user } = useUser();
@@ -45,42 +66,84 @@ export default function ProjectPage({ params }: ProjectPageProps) {
 
   // Load project details
   const loadProject = async () => {
-    try {
-      if (!user?.id) return;
+    if (!user?.id) return;
 
-      const response = await fetch(
-        `${API_BASE_URL}/api/projects/${projectId}?clerk_id=${user.id}`
-      );
+    const response = await fetch(
+      `${API_BASE_URL}/api/projects/${projectId}?clerk_id=${user.id}`
+    );
 
-      if (!response.ok) {
-        throw new Error("Failed to load project");
-      }
-
-      const result = await response.json();
-      setProject(result.data);
-    } catch (err) {
-      setError("Failed to load project details.");
-      console.error("Error loading project:", err);
+    if (!response.ok) {
+      throw new Error("Failed to load project");
     }
+
+    const result = await response.json();
+    setProject(result.data);
   };
 
   // Load project chats
   const loadProjectChats = async () => {
+    const response = await fetch(
+      `${API_BASE_URL}/api/projects/${projectId}/chats`
+    );
+
+    if (!response.ok) {
+      throw new Error("Failed to load project chats");
+    }
+
+    const result = await response.json();
+    setProjectChats(result.data);
+  };
+
+  // Load project settings
+  const loadProjectSettings = async () => {
+    if (!user?.id) return;
+
+    const response = await fetch(
+      `${API_BASE_URL}/api/projects/${projectId}/settings?clerk_id=${user.id}`
+    );
+
+    if (!response.ok) {
+      throw new Error("Failed to load project settings");
+    }
+
+    const result = await response.json();
+    setProjectSettings(result.data);
+  };
+
+  // Save project settings
+  const saveProjectSettings = async (settings: Partial<ProjectSettings>) => {
     try {
+      setSettingsError(null);
+      setSettingsLoading(true);
+
+      if (!user?.id) {
+        setSettingsError("User not logged in");
+        return;
+      }
+
       const response = await fetch(
-        `${API_BASE_URL}/api/projects/${projectId}/chats`
+        `${API_BASE_URL}/api/projects/${projectId}/settings?clerk_id=${user.id}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(settings),
+        }
       );
 
       if (!response.ok) {
-        throw new Error("Failed to load project chats");
+        throw new Error("Failed to save project settings");
       }
 
       const result = await response.json();
-      console.log(result, "result");
-      setProjectChats(result.data);
+      setProjectSettings(result.data);
+      alert("RAG Settings Applied Successfully!");
     } catch (err) {
-      setError("Failed to load project chats.");
-      console.error("Error loading project chats:", err);
+      setSettingsError("Failed to save project settings");
+      console.error("Error saving project settings:", err);
+    } finally {
+      setSettingsLoading(false);
     }
   };
 
@@ -134,8 +197,18 @@ export default function ProjectPage({ params }: ProjectPageProps) {
     const loadData = async () => {
       if (user?.id) {
         setLoading(true);
-        await Promise.all([loadProject(), loadProjectChats()]);
-        setLoading(false);
+        try {
+          await Promise.all([
+            loadProject(),
+            loadProjectChats(),
+            loadProjectSettings(),
+          ]);
+        } catch (err) {
+          setError("Failed to load project data");
+          console.error("Error loading project data:", err);
+        } finally {
+          setLoading(false);
+        }
       }
     };
 
@@ -157,15 +230,20 @@ export default function ProjectPage({ params }: ProjectPageProps) {
       </div>
     );
   }
+  console.log(projectSettings, "projectSettings");
 
   return (
     <ProjectView
       project={project}
       projectChats={projectChats}
+      projectSettings={projectSettings}
       error={error}
+      settingsError={settingsError}
+      settingsLoading={settingsLoading}
       isCreatingChat={isCreatingChat}
       onCreateNewChat={createNewChat}
       onChatClick={handleChatClick}
+      onSaveSettings={saveProjectSettings}
     />
   );
 }
