@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useUser } from "@clerk/nextjs";
 import { ProjectsGrid } from "../../../components/projects/ProjectsGrid";
 import { Project } from "@/lib/types";
+import { apiClient } from "@/lib/api";
 
 const API_BASE_URL = "http://localhost:8000";
 
@@ -23,16 +24,9 @@ export default function ProjectsPage() {
         return;
       }
 
-      const response = await fetch(
-        `${API_BASE_URL}/api/projects?clerk_id=${user.id}`
-      );
+      const result = await apiClient.get(`/api/projects?clerk_id=${user.id}`);
 
-      if (!response.ok) {
-        throw new Error("Failed to load projects");
-      }
-
-      const projectsData = await response.json();
-      const { data } = projectsData || {};
+      const { data } = result || {};
       setProjects(data);
     } catch (err) {
       setError("Failed to load projects.");
@@ -51,24 +45,13 @@ export default function ProjectsPage() {
         return;
       }
 
-      const response = await fetch(`${API_BASE_URL}/api/projects`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          name,
-          description,
-          clerk_id: user.id,
-        }),
+      const result = await apiClient.post("/api/projects", {
+        name,
+        description,
+        clerk_id: user.id,
       });
 
-      if (!response.ok) {
-        throw new Error("Failed to create project");
-      }
-
-      const data = await response.json();
-      const savedProject = data?.data || {};
+      const savedProject = result?.data || {};
       setProjects((prev) => [savedProject, ...prev]);
 
       return savedProject;
