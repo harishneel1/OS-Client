@@ -1,23 +1,7 @@
 import { FileText, Plus } from "lucide-react";
 import { DocumentsTab } from "./DocumentsTab";
 import { SettingsTab } from "./SettingsTab";
-
-interface LocalSettings {
-  embeddingModel: string;
-  ragStrategy: string;
-  chunksPerSearch: number;
-  finalContextSize: number;
-  similarityThreshold: number;
-  numberOfQueries: number;
-  reranking: {
-    enabled: boolean;
-    model: string;
-  };
-  hybridSearch: {
-    vectorWeight: number;
-    keywordWeight: number;
-  };
-}
+import { LocalSettings } from "@/lib/types";
 
 interface KnowledgeBaseSidebarProps {
   activeTab: "documents" | "settings";

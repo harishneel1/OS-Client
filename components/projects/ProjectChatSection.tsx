@@ -1,13 +1,5 @@
 import { Plus, MessageSquare } from "lucide-react";
-
-interface Chat {
-  id: string;
-  project_id: string | null;
-  title: string;
-  created_at: string;
-  updated_at: string;
-  clerk_id: string;
-}
+import { Chat } from "@/lib/types";
 
 interface ProjectChatSectionProps {
   projectChats: Chat[];

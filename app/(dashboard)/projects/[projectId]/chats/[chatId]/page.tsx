@@ -1,40 +1,22 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { use, useEffect, useState } from "react";
 import { useUser } from "@clerk/nextjs";
 import { ChatInterface } from "@/components/chat/ChatInterface";
-
-interface Message {
-  id: string;
-  content: string;
-  role: "user" | "assistant";
-  created_at: string;
-  chat_id: string;
-  clerk_id: string;
-}
-
-interface Chat {
-  id: string;
-  project_id: string | null;
-  title: string;
-  messages: Message[];
-  created_at: string;
-  updated_at: string;
-  clerk_id: string;
-}
+import { ChatWithMessages } from "@/lib/types";
 
 const API_BASE_URL = "http://localhost:8000";
 
 interface ProjectChatPageProps {
-  params: {
+  params: Promise<{
     projectId: string;
     chatId: string;
-  };
+  }>;
 }
 
 export default function ProjectChatPage({ params }: ProjectChatPageProps) {
-  const { projectId, chatId } = params;
-  const [chat, setChat] = useState<Chat | null>(null);
+  const { projectId, chatId } = use(params);
+  const [chat, setChat] = useState<ChatWithMessages | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isSending, setIsSending] = useState(false);

@@ -3,15 +3,7 @@
 import { useEffect, useState } from "react";
 import { useUser } from "@clerk/nextjs";
 import { ProjectsGrid } from "../../../components/projects/ProjectsGrid";
-
-interface Project {
-  id: string;
-  name: string;
-  description: string;
-  created_at: string;
-  updated_at: string;
-  clerk_id: string;
-}
+import { Project } from "@/lib/types";
 
 const API_BASE_URL = "http://localhost:8000";
 

@@ -2,19 +2,7 @@
 
 import { useDropzone } from "react-dropzone";
 import { Upload, FileText, Trash2 } from "lucide-react";
-
-interface ProjectDocument {
-  id: string;
-  project_id: string;
-  original_filename: string;
-  s3_key: string;
-  file_size: number;
-  file_type: string;
-  upload_status: string;
-  clerk_id: string;
-  created_at: string;
-  updated_at: string;
-}
+import { ProjectDocument } from "@/lib/types";
 
 interface DocumentsTabProps {
   projectDocuments: ProjectDocument[];

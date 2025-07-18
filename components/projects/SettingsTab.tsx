@@ -1,22 +1,6 @@
 import { Settings } from "lucide-react";
 import { calculatePerformanceMetrics } from "../../lib/utils/calculatePerformanceMetrics";
-
-interface LocalSettings {
-  embeddingModel: string;
-  ragStrategy: string;
-  chunksPerSearch: number;
-  finalContextSize: number;
-  similarityThreshold: number;
-  numberOfQueries: number;
-  reranking: {
-    enabled: boolean;
-    model: string;
-  };
-  hybridSearch: {
-    vectorWeight: number;
-    keywordWeight: number;
-  };
-}
+import { LocalSettings } from "@/lib/types";
 
 interface SettingsTabProps {
   localSettings: LocalSettings;

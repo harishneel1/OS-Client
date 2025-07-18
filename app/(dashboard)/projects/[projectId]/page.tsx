@@ -4,41 +4,7 @@ import { use, useEffect, useState } from "react";
 import { useUser } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import { ProjectView } from "../../../../components/projects/ProjectView";
-
-interface Project {
-  id: string;
-  name: string;
-  description: string;
-  created_at: string;
-  updated_at: string;
-  clerk_id: string;
-}
-
-interface Chat {
-  id: string;
-  project_id: string | null;
-  title: string;
-  created_at: string;
-  updated_at: string;
-  clerk_id: string;
-}
-
-interface ProjectSettings {
-  id: string;
-  project_id: string;
-  embedding_model: string;
-  rag_strategy: string;
-  chunks_per_search: number;
-  final_context_size: number;
-  similarity_threshold: number;
-  number_of_queries: number;
-  reranking_enabled: boolean;
-  reranking_model: string;
-  vector_weight: number;
-  keyword_weight: number;
-  created_at: string;
-  updated_at: string;
-}
+import { Project, Chat, ProjectSettings, ProjectDocument } from "@/lib/types";
 
 const API_BASE_URL = "http://localhost:8000";
 
@@ -46,19 +12,6 @@ interface ProjectPageProps {
   params: Promise<{
     projectId: string;
   }>;
-}
-
-interface ProjectDocument {
-  id: string;
-  project_id: string;
-  original_filename: string;
-  s3_key: string;
-  file_size: number;
-  file_type: string;
-  upload_status: string;
-  clerk_id: string;
-  created_at: string;
-  updated_at: string;
 }
 
 export default function ProjectPage({ params }: ProjectPageProps) {
@@ -145,6 +98,8 @@ export default function ProjectPage({ params }: ProjectPageProps) {
 
   // Handle file upload with proper error handling
   const handleFileUpload = async (files: File[]) => {
+    if (!user?.id) return;
+
     setUploading(true);
 
     for (const file of files) {
@@ -208,7 +163,6 @@ export default function ProjectPage({ params }: ProjectPageProps) {
         console.error("Upload failed:", error);
         setError(`Failed to upload ${file.name}`);
 
-        // 🔥 CLEANUP: Remove orphaned database record
         if (documentId) {
           try {
             await fetch(
@@ -231,6 +185,8 @@ export default function ProjectPage({ params }: ProjectPageProps) {
 
   // Handle file delete
   const handleFileDelete = async (fileId: string) => {
+    if (!user?.id) return;
+
     try {
       const response = await fetch(
         `${API_BASE_URL}/api/projects/${projectId}/files/${fileId}?clerk_id=${user.id}`,

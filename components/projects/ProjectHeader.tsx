@@ -1,11 +1,4 @@
-interface Project {
-  id: string;
-  name: string;
-  description: string;
-  created_at: string;
-  updated_at: string;
-  clerk_id: string;
-}
+import { Project } from "@/lib/types";
 
 interface ProjectHeaderProps {
   project: Project;

@@ -4,15 +4,7 @@ import { useState } from "react";
 import { Plus, Search } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { CreateProjectModal } from "./CreateProjectModal";
-
-interface Project {
-  id: string;
-  name: string;
-  description: string;
-  created_at: string;
-  updated_at: string;
-  clerk_id: string;
-}
+import { Project } from "@/lib/types";
 
 interface ProjectsGridProps {
   projects: Project[];

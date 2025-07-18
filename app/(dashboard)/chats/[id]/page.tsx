@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { use, useEffect, useState } from "react";
 import { useUser } from "@clerk/nextjs";
 import { ChatInterface } from "@/components/chat/ChatInterface";
 
@@ -24,13 +24,13 @@ interface Chat {
 const API_BASE_URL = "http://localhost:8000";
 
 interface ChatPageProps {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 }
 
 export default function ChatPage({ params }: ChatPageProps) {
-  const { id } = params;
+  const { id } = use(params);
   const [chat, setChat] = useState<Chat | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

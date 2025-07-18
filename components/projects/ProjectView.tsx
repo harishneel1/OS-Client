@@ -4,54 +4,7 @@ import React, { useState } from "react";
 import { ProjectHeader } from "./ProjectHeader";
 import { ProjectChatSection } from "./ProjectChatSection";
 import { KnowledgeBaseSidebar } from "./KnowledgeBaseSidebar";
-
-interface Project {
-  id: string;
-  name: string;
-  description: string;
-  created_at: string;
-  updated_at: string;
-  clerk_id: string;
-}
-
-interface Chat {
-  id: string;
-  project_id: string | null;
-  title: string;
-  created_at: string;
-  updated_at: string;
-  clerk_id: string;
-}
-
-interface ProjectSettings {
-  id: string;
-  project_id: string;
-  embedding_model: string;
-  rag_strategy: string;
-  chunks_per_search: number;
-  final_context_size: number;
-  similarity_threshold: number;
-  number_of_queries: number;
-  reranking_enabled: boolean;
-  reranking_model: string;
-  vector_weight: number;
-  keyword_weight: number;
-  created_at: string;
-  updated_at: string;
-}
-
-interface ProjectDocument {
-  id: string;
-  project_id: string;
-  original_filename: string;
-  s3_key: string;
-  file_size: number;
-  file_type: string;
-  upload_status: string;
-  clerk_id: string;
-  created_at: string;
-  updated_at: string;
-}
+import { Project, Chat, ProjectSettings, ProjectDocument } from "@/lib/types";
 
 interface ProjectViewProps {
   project: Project;
