@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
+import { apiClient } from "@/lib/api";
 
 interface Chat {
   id: string;
@@ -40,15 +41,7 @@ export function Sidebar() {
           return;
         }
 
-        const response = await fetch(
-          `http://localhost:8000/api/chats?clerk_id=${user.id}`
-        );
-
-        if (!response.ok) {
-          throw new Error("Failed to load chats");
-        }
-
-        const result = await response.json();
+        const result = await apiClient.get(`/api/chats?clerk_id=${user.id}`);
         setChats(result.data || []);
       } catch (error) {
         console.error("Error loading chats:", error);
