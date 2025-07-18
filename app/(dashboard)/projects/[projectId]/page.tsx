@@ -5,6 +5,7 @@ import { useUser } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import { ProjectView } from "../../../../components/projects/ProjectView";
 import { Project, Chat, ProjectSettings, ProjectDocument } from "@/lib/types";
+import { apiClient } from "@/lib/api";
 
 const API_BASE_URL = "http://localhost:8000";
 
@@ -38,29 +39,16 @@ export default function ProjectPage({ params }: ProjectPageProps) {
   const loadProject = async () => {
     if (!user?.id) return;
 
-    const response = await fetch(
-      `${API_BASE_URL}/api/projects/${projectId}?clerk_id=${user.id}`
+    const result = await apiClient.get(
+      `/api/projects/${projectId}?clerk_id=${user.id}`
     );
 
-    if (!response.ok) {
-      throw new Error("Failed to load project");
-    }
-
-    const result = await response.json();
     setProject(result.data);
   };
 
   // Load project chats
   const loadProjectChats = async () => {
-    const response = await fetch(
-      `${API_BASE_URL}/api/projects/${projectId}/chats`
-    );
-
-    if (!response.ok) {
-      throw new Error("Failed to load project chats");
-    }
-
-    const result = await response.json();
+    const result = await apiClient.get(`/api/projects/${projectId}/chats`);
     setProjectChats(result.data);
   };
 
@@ -68,15 +56,10 @@ export default function ProjectPage({ params }: ProjectPageProps) {
   const loadProjectSettings = async () => {
     if (!user?.id) return;
 
-    const response = await fetch(
-      `${API_BASE_URL}/api/projects/${projectId}/settings?clerk_id=${user.id}`
+    const result = await apiClient.get(
+      `/api/projects/${projectId}/settings?clerk_id=${user.id}`
     );
 
-    if (!response.ok) {
-      throw new Error("Failed to load project settings");
-    }
-
-    const result = await response.json();
     setProjectSettings(result.data);
   };
 
@@ -84,15 +67,10 @@ export default function ProjectPage({ params }: ProjectPageProps) {
   const loadProjectDocuments = async () => {
     if (!user?.id) return;
 
-    const response = await fetch(
-      `${API_BASE_URL}/api/projects/${projectId}/files?clerk_id=${user.id}`
+    const result = await apiClient.get(
+      `/api/projects/${projectId}/files?clerk_id=${user.id}`
     );
 
-    if (!response.ok) {
-      throw new Error("Failed to load project documents");
-    }
-
-    const result = await response.json();
     setProjectDocuments(result.data);
   };
 
@@ -188,16 +166,9 @@ export default function ProjectPage({ params }: ProjectPageProps) {
     if (!user?.id) return;
 
     try {
-      const response = await fetch(
-        `${API_BASE_URL}/api/projects/${projectId}/files/${fileId}?clerk_id=${user.id}`,
-        {
-          method: "DELETE",
-        }
+      const response = await apiClient.delete(
+        `/api/projects/${projectId}/files/${fileId}?clerk_id=${user.id}`
       );
-
-      if (!response.ok) {
-        throw new Error("Failed to delete file");
-      }
 
       setProjectDocuments((prev) => prev.filter((doc) => doc.id !== fileId));
     } catch (error) {
@@ -217,22 +188,11 @@ export default function ProjectPage({ params }: ProjectPageProps) {
         return;
       }
 
-      const response = await fetch(
-        `${API_BASE_URL}/api/projects/${projectId}/settings?clerk_id=${user.id}`,
-        {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(settings),
-        }
+      const result = await apiClient.put(
+        `/api/projects/${projectId}/settings?clerk_id=${user.id}`,
+        settings
       );
 
-      if (!response.ok) {
-        throw new Error("Failed to save project settings");
-      }
-
-      const result = await response.json();
       setProjectSettings(result.data);
       alert("RAG Settings Applied Successfully!");
     } catch (err) {
@@ -254,23 +214,12 @@ export default function ProjectPage({ params }: ProjectPageProps) {
         return;
       }
 
-      const response = await fetch(`${API_BASE_URL}/api/chats`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          title: "New Chat",
-          project_id: projectId,
-          clerk_id: user.id,
-        }),
+      const result = await apiClient.post("/api/chats", {
+        title: "New Chat",
+        project_id: projectId,
+        clerk_id: user.id,
       });
 
-      if (!response.ok) {
-        throw new Error("Failed to create chat");
-      }
-
-      const result = await response.json();
       const savedChat = result.data;
 
       // Navigate to the new chat immediately
