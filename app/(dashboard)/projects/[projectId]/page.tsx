@@ -143,13 +143,15 @@ export default function ProjectPage({ params }: ProjectPageProps) {
     setProjectDocuments(result.data);
   };
 
-  // Handle file upload
+  // Handle file upload with proper error handling
   const handleFileUpload = async (files: File[]) => {
     setUploading(true);
 
     for (const file of files) {
+      let documentId: string | null = null;
+
       try {
-        // Step 1: Get presigned URL for this file
+        // Step 1: Get presigned URL (creates database record)
         const uploadResponse = await fetch(
           `${API_BASE_URL}/api/projects/${projectId}/files/upload-url?clerk_id=${user.id}`,
           {
@@ -168,7 +170,10 @@ export default function ProjectPage({ params }: ProjectPageProps) {
         }
 
         const uploadData = await uploadResponse.json();
-        const { upload_url, s3_key } = uploadData.data;
+        const { upload_url, s3_key, document_id } = uploadData.data;
+
+        // Store document_id for cleanup if needed
+        documentId = document_id;
 
         // Step 2: Upload file directly to S3
         const s3Response = await fetch(upload_url, {
@@ -197,10 +202,27 @@ export default function ProjectPage({ params }: ProjectPageProps) {
 
         const confirmData = await confirmResponse.json();
 
+        // ✅ SUCCESS: Add to state
         setProjectDocuments((prev) => [confirmData.data, ...prev]);
       } catch (error) {
         console.error("Upload failed:", error);
         setError(`Failed to upload ${file.name}`);
+
+        // 🔥 CLEANUP: Remove orphaned database record
+        if (documentId) {
+          try {
+            await fetch(
+              `${API_BASE_URL}/api/projects/${projectId}/files/${documentId}?clerk_id=${user.id}`,
+              {
+                method: "DELETE",
+              }
+            );
+            console.log(`Cleaned up orphaned record: ${documentId}`);
+          } catch (cleanupError) {
+            console.error("Failed to cleanup orphaned record:", cleanupError);
+            // Don't throw - this is just cleanup
+          }
+        }
       }
     }
 
