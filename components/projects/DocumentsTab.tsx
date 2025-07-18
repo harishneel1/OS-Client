@@ -1,68 +1,36 @@
 "use client";
 
-import { useState } from "react";
 import { useDropzone } from "react-dropzone";
 import { Upload, FileText, Trash2 } from "lucide-react";
 
-interface UploadedFile {
+interface ProjectDocument {
   id: string;
-  name: string;
-  size: number;
-  uploadedAt: Date;
-  type: string;
+  project_id: string;
+  original_filename: string;
+  s3_key: string;
+  file_size: number;
+  file_type: string;
+  upload_status: string;
+  clerk_id: string;
+  created_at: string;
+  updated_at: string;
 }
 
-export function DocumentsTab() {
-  const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([
-    // Demo files for now
-    {
-      id: "1",
-      name: "research-paper.pdf",
-      size: 2400000, // 2.3 MB
-      uploadedAt: new Date(Date.now() - 2 * 60 * 60 * 1000), // 2 hours ago
-      type: "application/pdf",
-    },
-    {
-      id: "2",
-      name: "project-notes.md",
-      size: 159744, // 156 KB
-      uploadedAt: new Date(Date.now() - 24 * 60 * 60 * 1000), // 1 day ago
-      type: "text/markdown",
-    },
-    {
-      id: "3",
-      name: "documentation.docx",
-      size: 3870720, // 3.7 MB
-      uploadedAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000), // 3 days ago
-      type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    },
-  ]);
-  const [uploading, setUploading] = useState(false);
+interface DocumentsTabProps {
+  projectDocuments: ProjectDocument[];
+  uploading: boolean;
+  onFileUpload: (files: File[]) => Promise<void>;
+  onFileDelete: (fileId: string) => Promise<void>;
+}
 
-  const onDrop = async (acceptedFiles: File[]) => {
-    setUploading(true);
-
-    // Simulate upload process
-    for (const file of acceptedFiles) {
-      // In real implementation, this would upload to S3
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-
-      const newFile: UploadedFile = {
-        id: Date.now().toString(),
-        name: file.name,
-        size: file.size,
-        uploadedAt: new Date(),
-        type: file.type,
-      };
-
-      setUploadedFiles((prev) => [newFile, ...prev]);
-    }
-
-    setUploading(false);
-  };
-
+export function DocumentsTab({
+  projectDocuments,
+  uploading,
+  onFileUpload,
+  onFileDelete,
+}: DocumentsTabProps) {
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop,
+    onDrop: onFileUpload,
     accept: {
       "application/pdf": [".pdf"],
       "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
@@ -74,10 +42,6 @@ export function DocumentsTab() {
     disabled: uploading,
   });
 
-  const handleDeleteFile = (fileId: string) => {
-    setUploadedFiles((prev) => prev.filter((file) => file.id !== fileId));
-  };
-
   const formatFileSize = (bytes: number) => {
     if (bytes === 0) return "0 Bytes";
     const k = 1024;
@@ -86,7 +50,8 @@ export function DocumentsTab() {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i];
   };
 
-  const formatTimeAgo = (date: Date) => {
+  const formatTimeAgo = (dateString: string) => {
+    const date = new Date(dateString);
     const now = new Date();
     const diffInHours = Math.floor(
       (now.getTime() - date.getTime()) / (1000 * 60 * 60)
@@ -99,6 +64,11 @@ export function DocumentsTab() {
     const diffInDays = Math.floor(diffInHours / 24);
     return `${diffInDays} day${diffInDays > 1 ? "s" : ""} ago`;
   };
+
+  // Only show completed uploads
+  const completedDocuments = projectDocuments.filter(
+    (doc) => doc.upload_status === "completed"
+  );
 
   return (
     <div className="p-4 space-y-4">
@@ -144,41 +114,50 @@ export function DocumentsTab() {
       {/* Documents List */}
       <div>
         <h3 className="text-sm font-medium text-gray-700 mb-3">
-          Uploaded Documents ({uploadedFiles.length})
+          Uploaded Documents ({completedDocuments.length})
         </h3>
 
-        {uploadedFiles.length === 0 ? (
+        {completedDocuments.length === 0 ? (
           <div className="text-center py-8 text-gray-500 text-sm">
             No documents uploaded yet
           </div>
         ) : (
           <div className="space-y-2">
-            {uploadedFiles.map((file) => (
-              <div
-                key={file.id}
-                className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
-              >
-                <div className="flex items-center gap-3 flex-1 min-w-0">
-                  <FileText size={16} className="text-gray-500 flex-shrink-0" />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-gray-900 truncate">
-                      {file.name}
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      {formatFileSize(file.size)} • Uploaded{" "}
-                      {formatTimeAgo(file.uploadedAt)}
-                    </p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => handleDeleteFile(file.id)}
-                  className="text-gray-400 hover:text-red-500 transition-colors p-1 rounded"
-                  title="Delete file"
+            {completedDocuments
+              .sort(
+                (a, b) =>
+                  new Date(b.updated_at).getTime() -
+                  new Date(a.updated_at).getTime()
+              )
+              .map((doc) => (
+                <div
+                  key={doc.id}
+                  className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
                 >
-                  <Trash2 size={16} />
-                </button>
-              </div>
-            ))}
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <FileText
+                      size={16}
+                      className="text-gray-500 flex-shrink-0"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-gray-900 truncate">
+                        {doc.original_filename}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {formatFileSize(doc.file_size)} • Uploaded{" "}
+                        {formatTimeAgo(doc.updated_at)}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => onFileDelete(doc.id)}
+                    className="text-gray-400 hover:text-red-500 transition-colors p-1 rounded"
+                    title="Delete file"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+              ))}
           </div>
         )}
       </div>

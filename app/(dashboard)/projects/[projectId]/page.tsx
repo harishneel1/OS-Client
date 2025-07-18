@@ -48,6 +48,19 @@ interface ProjectPageProps {
   }>;
 }
 
+interface ProjectDocument {
+  id: string;
+  project_id: string;
+  original_filename: string;
+  s3_key: string;
+  file_size: number;
+  file_type: string;
+  upload_status: string;
+  clerk_id: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export default function ProjectPage({ params }: ProjectPageProps) {
   const { projectId } = use(params);
 
@@ -55,11 +68,15 @@ export default function ProjectPage({ params }: ProjectPageProps) {
   const [projectChats, setProjectChats] = useState<Chat[]>([]);
   const [projectSettings, setProjectSettings] =
     useState<ProjectSettings | null>(null);
+  const [projectDocuments, setProjectDocuments] = useState<ProjectDocument[]>(
+    []
+  );
   const [loading, setLoading] = useState(true);
   const [settingsLoading, setSettingsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [settingsError, setSettingsError] = useState<string | null>(null);
   const [isCreatingChat, setIsCreatingChat] = useState(false);
+  const [uploading, setUploading] = useState(false);
 
   const { user } = useUser();
   const router = useRouter();
@@ -108,6 +125,107 @@ export default function ProjectPage({ params }: ProjectPageProps) {
 
     const result = await response.json();
     setProjectSettings(result.data);
+  };
+
+  // Load project documents
+  const loadProjectDocuments = async () => {
+    if (!user?.id) return;
+
+    const response = await fetch(
+      `${API_BASE_URL}/api/projects/${projectId}/files?clerk_id=${user.id}`
+    );
+
+    if (!response.ok) {
+      throw new Error("Failed to load project documents");
+    }
+
+    const result = await response.json();
+    setProjectDocuments(result.data);
+  };
+
+  // Handle file upload
+  const handleFileUpload = async (files: File[]) => {
+    setUploading(true);
+
+    for (const file of files) {
+      try {
+        // Step 1: Get presigned URL for this file
+        const uploadResponse = await fetch(
+          `${API_BASE_URL}/api/projects/${projectId}/files/upload-url?clerk_id=${user.id}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              filename: file.name,
+              file_size: file.size,
+              file_type: file.type,
+            }),
+          }
+        );
+
+        if (!uploadResponse.ok) {
+          throw new Error("Failed to get upload URL");
+        }
+
+        const uploadData = await uploadResponse.json();
+        const { upload_url, s3_key } = uploadData.data;
+
+        // Step 2: Upload file directly to S3
+        const s3Response = await fetch(upload_url, {
+          method: "PUT",
+          body: file,
+          headers: { "Content-Type": file.type },
+        });
+
+        if (!s3Response.ok) {
+          throw new Error("Failed to upload to S3");
+        }
+
+        // Step 3: Confirm upload success
+        const confirmResponse = await fetch(
+          `${API_BASE_URL}/api/projects/${projectId}/files/confirm?clerk_id=${user.id}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ s3_key }),
+          }
+        );
+
+        if (!confirmResponse.ok) {
+          throw new Error("Failed to confirm upload");
+        }
+
+        const confirmData = await confirmResponse.json();
+
+        setProjectDocuments((prev) => [confirmData.data, ...prev]);
+      } catch (error) {
+        console.error("Upload failed:", error);
+        setError(`Failed to upload ${file.name}`);
+      }
+    }
+
+    setUploading(false);
+  };
+
+  // Handle file delete
+  const handleFileDelete = async (fileId: string) => {
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/projects/${projectId}/files/${fileId}?clerk_id=${user.id}`,
+        {
+          method: "DELETE",
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to delete file");
+      }
+
+      setProjectDocuments((prev) => prev.filter((doc) => doc.id !== fileId));
+    } catch (error) {
+      console.error("Delete failed:", error);
+      setError("Failed to delete file");
+    }
   };
 
   // Save project settings
@@ -202,6 +320,7 @@ export default function ProjectPage({ params }: ProjectPageProps) {
             loadProject(),
             loadProjectChats(),
             loadProjectSettings(),
+            loadProjectDocuments(),
           ]);
         } catch (err) {
           setError("Failed to load project data");
@@ -230,20 +349,23 @@ export default function ProjectPage({ params }: ProjectPageProps) {
       </div>
     );
   }
-  console.log(projectSettings, "projectSettings");
 
   return (
     <ProjectView
       project={project}
       projectChats={projectChats}
       projectSettings={projectSettings}
+      projectDocuments={projectDocuments}
       error={error}
       settingsError={settingsError}
       settingsLoading={settingsLoading}
       isCreatingChat={isCreatingChat}
+      uploading={uploading}
       onCreateNewChat={createNewChat}
       onChatClick={handleChatClick}
       onSaveSettings={saveProjectSettings}
+      onFileUpload={handleFileUpload}
+      onFileDelete={handleFileDelete}
     />
   );
 }

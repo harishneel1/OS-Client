@@ -40,6 +40,19 @@ interface ProjectSettings {
   updated_at: string;
 }
 
+interface ProjectDocument {
+  id: string;
+  project_id: string;
+  original_filename: string;
+  s3_key: string;
+  file_size: number;
+  file_type: string;
+  upload_status: string;
+  clerk_id: string;
+  created_at: string;
+  updated_at: string;
+}
+
 interface ProjectViewProps {
   project: Project;
   projectChats: Chat[];
@@ -51,6 +64,10 @@ interface ProjectViewProps {
   onCreateNewChat: () => void;
   onChatClick: (chatId: string) => void;
   onSaveSettings: (settings: Partial<ProjectSettings>) => void;
+  projectDocuments: ProjectDocument[];
+  uploading: boolean;
+  onFileUpload: (files: File[]) => Promise<void>;
+  onFileDelete: (fileId: string) => Promise<void>;
 }
 
 export function ProjectView({
@@ -64,6 +81,10 @@ export function ProjectView({
   onCreateNewChat,
   onChatClick,
   onSaveSettings,
+  projectDocuments,
+  uploading,
+  onFileUpload,
+  onFileDelete,
 }: ProjectViewProps) {
   const [activeTab, setActiveTab] = useState<"documents" | "settings">(
     "documents"
@@ -213,6 +234,10 @@ export function ProjectView({
         onUpdateNestedSettings={updateNestedSettings}
         onUpdateVectorWeight={updateVectorWeight}
         onApplySettings={handleApplySettings}
+        projectDocuments={projectDocuments}
+        uploading={uploading}
+        onFileUpload={onFileUpload}
+        onFileDelete={onFileDelete}
       />
     </div>
   );

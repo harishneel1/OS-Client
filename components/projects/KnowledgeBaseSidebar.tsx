@@ -45,6 +45,10 @@ export function KnowledgeBaseSidebar({
   onUpdateNestedSettings,
   onUpdateVectorWeight,
   onApplySettings,
+  projectDocuments,
+  uploading,
+  onFileUpload,
+  onFileDelete,
 }: KnowledgeBaseSidebarProps) {
   return (
     <div className="w-80 border-l border-gray-200 bg-white h-full flex flex-col">
@@ -87,7 +91,12 @@ export function KnowledgeBaseSidebar({
       {/* Content */}
       <div className="flex-1 overflow-y-auto">
         {activeTab === "documents" ? (
-          <DocumentsTab />
+          <DocumentsTab
+            projectDocuments={projectDocuments}
+            uploading={uploading}
+            onFileUpload={onFileUpload}
+            onFileDelete={onFileDelete}
+          />
         ) : (
           <SettingsTab
             localSettings={localSettings}
