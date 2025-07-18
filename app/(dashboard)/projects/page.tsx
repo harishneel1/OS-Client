@@ -5,6 +5,7 @@ import { useUser } from "@clerk/nextjs";
 import { ProjectsGrid } from "../../../components/projects/ProjectsGrid";
 import { Project } from "@/lib/types";
 import { apiClient } from "@/lib/api";
+import toast from "react-hot-toast";
 
 const API_BASE_URL = "http://localhost:8000";
 
@@ -53,10 +54,12 @@ export default function ProjectsPage() {
 
       const savedProject = result?.data || {};
       setProjects((prev) => [savedProject, ...prev]);
+      toast.success("Project created successfully!");
 
       return savedProject;
     } catch (err) {
       setError("Failed to create project");
+      toast.error("Failed to create project");
       console.error("Error creating project:", err);
       throw err;
     }
