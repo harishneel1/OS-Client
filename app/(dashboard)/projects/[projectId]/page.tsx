@@ -85,57 +85,28 @@ export default function ProjectPage({ params }: ProjectPageProps) {
 
       try {
         // Step 1: Get presigned URL (creates database record)
-        const uploadResponse = await fetch(
-          `${API_BASE_URL}/api/projects/${projectId}/files/upload-url?clerk_id=${user.id}`,
+        const uploadData = await apiClient.post(
+          `/api/projects/${projectId}/files/upload-url?clerk_id=${user.id}`,
           {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              filename: file.name,
-              file_size: file.size,
-              file_type: file.type,
-            }),
+            filename: file.name,
+            file_size: file.size,
+            file_type: file.type,
           }
         );
 
-        if (!uploadResponse.ok) {
-          throw new Error("Failed to get upload URL");
-        }
-
-        const uploadData = await uploadResponse.json();
         const { upload_url, s3_key, document_id } = uploadData.data;
 
         // Store document_id for cleanup if needed
         documentId = document_id;
 
         // Step 2: Upload file directly to S3
-        const s3Response = await fetch(upload_url, {
-          method: "PUT",
-          body: file,
-          headers: { "Content-Type": file.type },
-        });
+        const s3Response = await apiClient.uploadToS3(upload_url, file);
 
-        if (!s3Response.ok) {
-          throw new Error("Failed to upload to S3");
-        }
-
-        // Step 3: Confirm upload success
-        const confirmResponse = await fetch(
-          `${API_BASE_URL}/api/projects/${projectId}/files/confirm?clerk_id=${user.id}`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ s3_key }),
-          }
+        const confirmData = await apiClient.post(
+          `/api/projects/${projectId}/files/confirm?clerk_id=${user.id}`,
+          { s3_key }
         );
 
-        if (!confirmResponse.ok) {
-          throw new Error("Failed to confirm upload");
-        }
-
-        const confirmData = await confirmResponse.json();
-
-        // ✅ SUCCESS: Add to state
         setProjectDocuments((prev) => [confirmData.data, ...prev]);
       } catch (error) {
         console.error("Upload failed:", error);

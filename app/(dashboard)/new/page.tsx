@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useUser } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import { ChatInterface } from "@/components/chat/ChatInterface";
+import { apiClient } from "@/lib/api";
 
 const API_BASE_URL = "http://localhost:8000";
 
@@ -25,23 +26,11 @@ export default function NewChatPage() {
         return;
       }
 
-      const response = await fetch(`${API_BASE_URL}/api/chats`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          title: "New Chat",
-          project_id: null,
-          clerk_id: user.id,
-        }),
+      const savedChat = await apiClient.post("/api/chats", {
+        title: "New Chat",
+        project_id: null,
+        clerk_id: user.id,
       });
-
-      if (!response.ok) {
-        throw new Error("Failed to create chat");
-      }
-
-      const savedChat = await response.json();
 
       // Navigate to the new chat
       router.push(`/chats/${savedChat.id}`);
