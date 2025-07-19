@@ -53,7 +53,8 @@ export interface ProjectDocument {
   s3_key: string;
   file_size: number;
   file_type: string;
-  upload_status: string;
+  processing_status: string;
+  progress_percentage: number;
   clerk_id: string;
   created_at: string;
   updated_at: string;

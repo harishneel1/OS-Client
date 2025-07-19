@@ -18,7 +18,6 @@ interface ProjectViewProps {
   onChatClick: (chatId: string) => void;
   onSaveSettings: (settings: Partial<ProjectSettings>) => void;
   projectDocuments: ProjectDocument[];
-  uploading: boolean;
   onFileUpload: (files: File[]) => Promise<void>;
   onFileDelete: (fileId: string) => Promise<void>;
 }
@@ -35,7 +34,6 @@ export function ProjectView({
   onChatClick,
   onSaveSettings,
   projectDocuments,
-  uploading,
   onFileUpload,
   onFileDelete,
 }: ProjectViewProps) {
@@ -188,7 +186,6 @@ export function ProjectView({
         onUpdateVectorWeight={updateVectorWeight}
         onApplySettings={handleApplySettings}
         projectDocuments={projectDocuments}
-        uploading={uploading}
         onFileUpload={onFileUpload}
         onFileDelete={onFileDelete}
       />

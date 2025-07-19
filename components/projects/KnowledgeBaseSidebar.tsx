@@ -30,7 +30,6 @@ export function KnowledgeBaseSidebar({
   onUpdateVectorWeight,
   onApplySettings,
   projectDocuments,
-  uploading,
   onFileUpload,
   onFileDelete,
 }: KnowledgeBaseSidebarProps) {
@@ -77,7 +76,6 @@ export function KnowledgeBaseSidebar({
         {activeTab === "documents" ? (
           <DocumentsTab
             projectDocuments={projectDocuments}
-            uploading={uploading}
             onFileUpload={onFileUpload}
             onFileDelete={onFileDelete}
           />

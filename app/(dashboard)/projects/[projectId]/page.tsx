@@ -30,7 +30,6 @@ export default function ProjectPage({ params }: ProjectPageProps) {
   const [error, setError] = useState<string | null>(null);
   const [settingsError, setSettingsError] = useState<string | null>(null);
   const [isCreatingChat, setIsCreatingChat] = useState(false);
-  const [uploading, setUploading] = useState(false);
 
   const { user } = useUser();
   const router = useRouter();
@@ -78,13 +77,30 @@ export default function ProjectPage({ params }: ProjectPageProps) {
   const handleFileUpload = async (files: File[]) => {
     if (!user?.id) return;
 
-    setUploading(true);
+    // Step 1: Create ALL temp documents and show them immediately
+    const tempDocuments = files.map((file, index) => ({
+      id: `temp-${Date.now()}-${index}`, // index prevents collisions
+      project_id: projectId,
+      original_filename: file.name,
+      s3_key: "",
+      file_size: file.size,
+      file_type: file.type,
+      processing_status: "uploading" as const,
+      clerk_id: user.id,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    }));
 
-    for (const file of files) {
+    // Step 2: Add ALL files to UI at once
+    setProjectDocuments((prev) => [...tempDocuments, ...prev]);
+
+    // Step 3: Upload all files in parallel, update each individually
+    const uploadPromises = tempDocuments.map(async (tempDoc, index) => {
+      const file = files[index]; // direct mapping by index
       let documentId: string | null = null;
 
       try {
-        // Step 1: Get presigned URL (creates database record)
+        // Get presigned URL (creates database record)
         const uploadData = await apiClient.post(
           `/api/projects/${projectId}/files/upload-url?clerk_id=${user.id}`,
           {
@@ -95,41 +111,53 @@ export default function ProjectPage({ params }: ProjectPageProps) {
         );
 
         const { upload_url, s3_key, document_id } = uploadData.data;
-
-        // Store document_id for cleanup if needed
         documentId = document_id;
 
-        // Step 2: Upload file directly to S3
-        const s3Response = await apiClient.uploadToS3(upload_url, file);
+        // Upload file directly to S3
+        await apiClient.uploadToS3(upload_url, file);
 
+        // Confirm upload
         const confirmData = await apiClient.post(
           `/api/projects/${projectId}/files/confirm?clerk_id=${user.id}`,
           { s3_key }
         );
 
-        setProjectDocuments((prev) => [confirmData.data, ...prev]);
+        setProjectDocuments((prev) =>
+          prev.map((doc) =>
+            doc.id === tempDoc.id
+              ? { ...confirmData.data, processing_status: "queued" }
+              : doc
+          )
+        );
       } catch (error) {
-        console.error("Upload failed:", error);
+        console.error(`Upload failed for ${file.name}:`, error);
         setError(`Failed to upload ${file.name}`);
 
+        // Update this specific tempDoc to 'failed'
+        setProjectDocuments((prev) =>
+          prev.map((doc) =>
+            doc.id === tempDoc.id
+              ? { ...doc, processing_status: "failed" }
+              : doc
+          )
+        );
+
+        // Cleanup orphaned database record if it was created
         if (documentId) {
           try {
             await fetch(
               `${API_BASE_URL}/api/projects/${projectId}/files/${documentId}?clerk_id=${user.id}`,
-              {
-                method: "DELETE",
-              }
+              { method: "DELETE" }
             );
             console.log(`Cleaned up orphaned record: ${documentId}`);
           } catch (cleanupError) {
             console.error("Failed to cleanup orphaned record:", cleanupError);
-            // Don't throw - this is just cleanup
           }
         }
       }
-    }
+    });
 
-    setUploading(false);
+    await Promise.allSettled(uploadPromises);
   };
 
   // Handle file delete
@@ -258,7 +286,6 @@ export default function ProjectPage({ params }: ProjectPageProps) {
       settingsError={settingsError}
       settingsLoading={settingsLoading}
       isCreatingChat={isCreatingChat}
-      uploading={uploading}
       onCreateNewChat={createNewChat}
       onChatClick={handleChatClick}
       onSaveSettings={saveProjectSettings}
