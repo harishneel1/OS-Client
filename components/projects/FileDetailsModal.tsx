@@ -21,6 +21,7 @@ interface ProjectDocument {
   file_size: number;
   file_type: string;
   processing_status: string;
+  progress_percentage: number;
   created_at: string;
   updated_at: string;
 }
@@ -31,135 +32,66 @@ interface FileDetailsModalProps {
   document: ProjectDocument | null;
 }
 
-// Pipeline Steps Configuration
+// Pipeline Steps Configuration - maps to backend status values
 const PIPELINE_STEPS = [
   {
-    id: "upload",
+    id: "uploading",
     name: "Upload to S3",
-    duration: 0.5,
     description: "Uploading file to secure cloud storage",
   },
   {
-    id: "queue",
+    id: "queued",
     name: "Queued",
-    duration: 0.5,
     description: "File queued for processing",
   },
   {
     id: "analysis",
     name: "Document Analysis",
-    duration: 0.5,
     description: "Analyzing document structure and metadata",
   },
   {
     id: "partitioning",
     name: "Partitioning",
-    duration: 0.5,
     description: "Processing and extracting text, images, and tables",
   },
   {
     id: "enrichment",
     name: "AI Enrichment",
-    duration: 0.5,
     description: "Enhancing images and tables with AI descriptions",
   },
   {
     id: "chunking",
     name: "Text Chunking",
-    duration: 0.5,
     description: "Creating semantic text chunks",
   },
   {
     id: "embedding",
     name: "Embedding Generation",
-    duration: 0.5,
     description: "Generating vector embeddings",
   },
   {
     id: "storage",
     name: "Vector Storage",
-    duration: 0.5,
     description: "Storing vectors in database",
   },
   {
     id: "indexing",
     name: "Index Building",
-    duration: 0.5,
     description: "Building search indexes",
   },
-];
-
-// Mock chunk data
-const MOCK_CHUNKS = [
   {
-    id: "chunk-1",
-    type: "text",
-    content:
-      "Introduction to Machine Learning: Machine learning is a subset of artificial intelligence that focuses on algorithms that can learn from data...",
-    page: 1,
-    tokens: 124,
-    chars: 156,
-  },
-  {
-    id: "chunk-2",
-    type: "text",
-    content:
-      "Neural networks are computing systems inspired by biological neural networks. They consist of interconnected nodes called neurons...",
-    page: 2,
-    tokens: 98,
-    chars: 132,
-  },
-  {
-    id: "chunk-3",
-    type: "image",
-    content:
-      "Neural Network Architecture Diagram - Shows input layer, hidden layers, and output layer with connections between neurons",
-    page: 3,
-    tokens: 0,
-    chars: 0,
-  },
-  {
-    id: "chunk-4",
-    type: "table",
-    content:
-      "Performance Comparison Table - Model accuracy across different datasets: CNN: 94.2%, RNN: 87.5%, Transformer: 96.8%",
-    page: 4,
-    tokens: 0,
-    chars: 0,
-  },
-  {
-    id: "chunk-5",
-    type: "text",
-    content:
-      "Deep learning has revolutionized computer vision, natural language processing, and many other domains through its ability to learn hierarchical representations...",
-    page: 5,
-    tokens: 145,
-    chars: 178,
+    id: "completed",
+    name: "Completed",
+    description: "Document processing completed successfully",
   },
 ];
-
-type StepStatus = "pending" | "processing" | "completed" | "failed";
-
-interface PipelineStep {
-  id: string;
-  name: string;
-  status: StepStatus;
-  duration: number;
-  description: string;
-  startTime?: number;
-  completedTime?: number;
-}
 
 export function FileDetailsModal({
   isOpen,
   onClose,
   document,
 }: FileDetailsModalProps) {
-  const [steps, setSteps] = useState<PipelineStep[]>(() =>
-    PIPELINE_STEPS.map((step) => ({ ...step, status: "pending" as StepStatus }))
-  );
-  const [currentStepIndex, setCurrentStepIndex] = useState(0);
-  const [activeTab, setActiveTab] = useState<string>("upload");
+  const [activeTab, setActiveTab] = useState<string>("uploading");
   const [chunksFilter, setChunksFilter] = useState<
     "all" | "text" | "image" | "table"
   >("all");
@@ -167,29 +99,33 @@ export function FileDetailsModal({
 
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedChunk, setSelectedChunk] = useState<any>(null);
-  const [processingComplete, setProcessingComplete] = useState(false);
 
   const [chunks, setChunks] = useState<any[]>([]);
   const [chunksLoading, setChunksLoading] = useState(false);
 
-  const [metrics, setMetrics] = useState({
-    pagesProcessed: 0,
-    totalPages: 15,
-    chunksCreated: 0,
-    imagesFound: 0,
-    tablesExtracted: 0,
-    processingTime: 0,
+  // Get current processing status from document prop
+  const currentStatus = document?.processing_status || "uploading";
+  const progressPercentage = document?.progress_percentage || 0;
+  const isProcessingComplete = currentStatus === "completed";
+  const isProcessingFailed = currentStatus === "failed";
+
+  // Debug logging - remove this later
+  console.log("Modal Debug:", {
+    currentStatus,
+    progressPercentage,
+    activeTab,
+    documentId: document?.id,
   });
 
+  // Load chunks when document processing is complete
   const loadChunks = async () => {
-    if (!document?.project_id || !document?.id) return;
+    if (!document?.project_id || !document?.id || !user?.id) return;
 
     try {
       setChunksLoading(true);
 
-      // Call your new API endpoint
       const response = await fetch(
-        `http://localhost:8000/api/projects/${document.project_id}/files/${document.id}/chunks?clerk_id=${user?.id}`,
+        `http://localhost:8000/api/projects/${document.project_id}/files/${document.id}/chunks?clerk_id=${user.id}`,
         {
           method: "GET",
           headers: {
@@ -206,11 +142,11 @@ export function FileDetailsModal({
 
       const transformedChunks = result.data.map((chunk: any) => ({
         id: chunk.id,
-        type: chunk.type, // ✅ Backend has 'type'
+        type: chunk.type,
         content: chunk.content,
-        page: chunk.page_number, // ✅ Map to 'page' (UI expects this)
+        page: chunk.page_number,
         chunkIndex: chunk.chunk_index,
-        chars: chunk.char_count, // ✅ Map to 'chars' (UI expects this)
+        chars: chunk.char_count,
       }));
 
       setChunks(transformedChunks);
@@ -219,136 +155,66 @@ export function FileDetailsModal({
       );
     } catch (error) {
       console.error("Error loading chunks:", error);
-      setChunks([]); // Fall back to empty array
+      setChunks([]);
     } finally {
       setChunksLoading(false);
     }
   };
 
-  console.log(chunks, "chunks");
-
+  // Load chunks when modal opens and processing is complete
   useEffect(() => {
-    if (isOpen && document && processingComplete) {
+    if (isOpen && isProcessingComplete) {
       loadChunks();
     }
-  }, [isOpen, document, processingComplete]);
+  }, [isOpen, isProcessingComplete, document?.id]);
 
-  // Simulation effect
+  // Reset state when modal opens with new document
   useEffect(() => {
-    if (!isOpen || !document) return;
+    if (isOpen && document) {
+      // Set active tab based on current processing status
+      setActiveTab(currentStatus);
+      setSelectedChunk(null);
+      setSearchQuery("");
+      setChunks([]);
+    }
+  }, [isOpen, document?.id, currentStatus]);
 
-    // Reset state when modal opens
-    setSteps(
-      PIPELINE_STEPS.map((step) => ({
-        ...step,
-        status: "pending" as StepStatus,
-      }))
+  // Auto-update active tab when processing status changes
+  useEffect(() => {
+    if (isOpen && currentStatus && currentStatus !== "completed") {
+      setActiveTab(currentStatus);
+    }
+  }, [currentStatus, isOpen]);
+
+  const getStepStatus = (stepId: string) => {
+    const stepIndex = PIPELINE_STEPS.findIndex((step) => step.id === stepId);
+    const currentIndex = PIPELINE_STEPS.findIndex(
+      (step) => step.id === currentStatus
     );
-    setCurrentStepIndex(0);
-    setActiveTab("upload");
-    setProcessingComplete(false);
-    setMetrics({
-      pagesProcessed: 0,
-      totalPages: 15,
-      chunksCreated: 0,
-      imagesFound: 0,
-      tablesExtracted: 0,
-      processingTime: 0,
-    });
 
-    let timeoutId: NodeJS.Timeout;
-    let startTime = Date.now();
-    let metricsInterval: NodeJS.Timeout;
+    if (isProcessingFailed) {
+      // If processing failed, show steps up to current as completed, current as failed, rest as pending
+      if (stepIndex < currentIndex) return "completed";
+      if (stepIndex === currentIndex) return "failed";
+      return "pending";
+    }
 
-    // Start metrics counter
-    metricsInterval = setInterval(() => {
-      setMetrics((prev) => ({
-        ...prev,
-        processingTime: Math.floor((Date.now() - startTime) / 1000),
-      }));
-    }, 1000);
-
-    const processNextStep = (stepIndex: number) => {
-      if (stepIndex >= PIPELINE_STEPS.length) {
-        setProcessingComplete(true);
-        return;
-      }
-
-      // Start current step
-      setSteps((prev) =>
-        prev.map((step, idx) =>
-          idx === stepIndex
-            ? { ...step, status: "processing", startTime: Date.now() }
-            : step
-        )
-      );
-      setCurrentStepIndex(stepIndex);
-      setActiveTab(PIPELINE_STEPS[stepIndex].id);
-
-      // Simulate step completion
-      timeoutId = setTimeout(() => {
-        // Complete current step
-        setSteps((prev) =>
-          prev.map((step, idx) =>
-            idx === stepIndex
-              ? { ...step, status: "completed", completedTime: Date.now() }
-              : step
-          )
-        );
-
-        // Update metrics based on step
-        updateMetricsForStep(PIPELINE_STEPS[stepIndex].id);
-
-        // Process next step
-        if (stepIndex < PIPELINE_STEPS.length - 1) {
-          setTimeout(() => processNextStep(stepIndex + 1), 800);
-        } else {
-          setProcessingComplete(true);
-        }
-      }, PIPELINE_STEPS[stepIndex].duration * 1000);
-    };
-
-    // Start processing
-    processNextStep(0);
-
-    return () => {
-      clearTimeout(timeoutId);
-      clearInterval(metricsInterval);
-    };
-  }, [isOpen, document]);
-
-  const updateMetricsForStep = (stepId: string) => {
-    setMetrics((prev) => {
-      switch (stepId) {
-        case "analysis":
-          return { ...prev, totalPages: 15 };
-        case "partitioning":
-          return {
-            ...prev,
-            pagesProcessed: 15,
-            imagesFound: 8,
-            tablesExtracted: 3,
-          };
-        case "chunking":
-          return { ...prev, chunksCreated: 47 };
-        default:
-          return prev;
-      }
-    });
+    if (stepIndex < currentIndex) return "completed";
+    if (stepIndex === currentIndex) return "processing";
+    return "pending";
   };
 
-  const getStepStatus = (stepId: string, index: number) => {
-    const step = steps.find((s) => s.id === stepId);
-    return step?.status || "pending";
+  const isTabEnabled = (stepId: string) => {
+    if (stepId === "completed" && isProcessingComplete) return true;
+
+    // Allow clicking on any completed or current step
+    const stepStatus = getStepStatus(stepId);
+    return stepStatus === "processing" || stepStatus === "completed";
   };
 
-  const isTabEnabled = (stepId: string, index: number) => {
-    if (stepId === "chunks") return processingComplete;
-    const step = steps.find((s) => s.id === stepId);
-    return step?.status === "processing" || step?.status === "completed";
-  };
+  const getTabIcon = (stepId: string) => {
+    const status = getStepStatus(stepId);
 
-  const getTabIcon = (status: StepStatus) => {
     switch (status) {
       case "completed":
         return <CheckCircle className="w-4 h-4" />;
@@ -369,9 +235,7 @@ export function FileDetailsModal({
     return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i];
   };
 
-  const chunksToUse = chunks.length > 0 ? chunks : MOCK_CHUNKS;
-  const filteredChunks = chunksToUse.filter((chunk) => {
-    // rest of your existing filter logic stays the same
+  const filteredChunks = chunks.filter((chunk) => {
     const matchesFilter = chunksFilter === "all" || chunk.type === chunksFilter;
     const matchesSearch = chunk.content
       .toLowerCase()
@@ -380,7 +244,7 @@ export function FileDetailsModal({
   });
 
   const renderTabContent = () => {
-    if (activeTab === "chunks") {
+    if (activeTab === "completed" && isProcessingComplete) {
       return (
         <div className="h-full flex flex-col">
           {/* Chunks Header */}
@@ -390,7 +254,7 @@ export function FileDetailsModal({
                 Content Chunks
               </h3>
               <div className="text-sm text-gray-500">
-                {filteredChunks.length} of {chunksToUse.length} chunks
+                {filteredChunks.length} of {chunks.length} chunks
                 {chunksLoading && (
                   <span className="text-blue-500"> (Loading...)</span>
                 )}
@@ -430,58 +294,74 @@ export function FileDetailsModal({
 
           {/* Chunks List */}
           <div className="flex-1 overflow-y-auto p-6">
-            <div className="space-y-3">
-              {filteredChunks.map((chunk) => (
-                <div
-                  key={chunk.id}
-                  onClick={() => setSelectedChunk(chunk)}
-                  className={`p-4 border rounded-lg cursor-pointer transition-all ${
-                    selectedChunk?.id === chunk.id
-                      ? "border-blue-500 bg-blue-50"
-                      : "border-gray-200 hover:border-gray-300 hover:shadow-sm"
-                  }`}
-                >
-                  <div className="flex items-start justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <span
-                        className={`px-2 py-1 rounded text-xs font-medium ${
-                          chunk.type === "text"
-                            ? "bg-green-100 text-green-700"
-                            : chunk.type === "image"
-                            ? "bg-purple-100 text-purple-700"
-                            : "bg-orange-100 text-orange-700"
-                        }`}
-                      >
-                        {chunk.type}
-                      </span>
-                      <span className="text-sm text-gray-500">
-                        Page {chunk.page}
-                      </span>
-                    </div>
-                    <div className="text-sm text-gray-500">
-                      {chunk.type === "text" && `${chunk.chars} chars`}
-                    </div>
-                  </div>
-                  <p className="text-sm text-gray-700 line-clamp-2">
-                    {chunk.content}
-                  </p>
+            {chunksLoading ? (
+              <div className="flex items-center justify-center h-full">
+                <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+                <span className="ml-2 text-gray-500">Loading chunks...</span>
+              </div>
+            ) : filteredChunks.length === 0 ? (
+              <div className="flex items-center justify-center h-full">
+                <div className="text-center text-gray-500">
+                  <FileText className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                  <p>No chunks found</p>
                 </div>
-              ))}
-            </div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {filteredChunks.map((chunk) => (
+                  <div
+                    key={chunk.id}
+                    onClick={() => setSelectedChunk(chunk)}
+                    className={`p-4 border rounded-lg cursor-pointer transition-all ${
+                      selectedChunk?.id === chunk.id
+                        ? "border-blue-500 bg-blue-50"
+                        : "border-gray-200 hover:border-gray-300 hover:shadow-sm"
+                    }`}
+                  >
+                    <div className="flex items-start justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`px-2 py-1 rounded text-xs font-medium ${
+                            chunk.type === "text"
+                              ? "bg-green-100 text-green-700"
+                              : chunk.type === "image"
+                              ? "bg-purple-100 text-purple-700"
+                              : "bg-orange-100 text-orange-700"
+                          }`}
+                        >
+                          {chunk.type}
+                        </span>
+                        <span className="text-sm text-gray-500">
+                          Page {chunk.page}
+                        </span>
+                      </div>
+                      <div className="text-sm text-gray-500">
+                        {chunk.type === "text" && `${chunk.chars} chars`}
+                      </div>
+                    </div>
+                    <p className="text-sm text-gray-700 line-clamp-2">
+                      {chunk.content}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       );
     }
 
     // Regular step content
-    const currentStep = steps.find((s) => s.id === activeTab);
+    const currentStep = PIPELINE_STEPS.find((s) => s.id === activeTab);
     if (!currentStep) return null;
+
+    const stepStatus = getStepStatus(activeTab);
 
     return (
       <div className="p-8">
         <div className="max-w-2xl mx-auto text-center">
           <div className="w-16 h-16 mx-auto mb-6 bg-blue-100 rounded-full flex items-center justify-center">
-            {getTabIcon(currentStep.status)}
+            {getTabIcon(activeTab)}
           </div>
 
           <h3 className="text-xl font-semibold text-gray-900 mb-2">
@@ -490,32 +370,28 @@ export function FileDetailsModal({
 
           <p className="text-gray-600 mb-6">{currentStep.description}</p>
 
-          {currentStep.status === "processing" && (
+          {stepStatus === "processing" && (
             <div className="w-full bg-gray-200 rounded-full h-2 mb-4">
               <div
-                className="bg-blue-600 h-2 rounded-full animate-pulse"
-                style={{ width: "60%" }}
+                className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                style={{ width: `${Math.max(progressPercentage, 10)}%` }}
               />
             </div>
           )}
 
-          {currentStep.status === "completed" && (
+          {stepStatus === "completed" && (
             <div className="bg-green-50 border border-green-200 rounded-lg p-4">
               <p className="text-green-700 font-medium">
                 ✓ Step completed successfully
               </p>
-              {activeTab === "partitioning" && (
-                <div className="mt-3 text-sm text-green-600">
-                  <div>📄 {metrics.pagesProcessed} pages processed</div>
-                  <div>🖼️ {metrics.imagesFound} images found</div>
-                  <div>📊 {metrics.tablesExtracted} tables extracted</div>
-                </div>
-              )}
-              {activeTab === "chunking" && (
-                <div className="mt-3 text-sm text-green-600">
-                  <div>🧩 {metrics.chunksCreated} chunks created</div>
-                </div>
-              )}
+            </div>
+          )}
+
+          {stepStatus === "failed" && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+              <p className="text-red-700 font-medium">
+                ✗ Processing failed at this step
+              </p>
             </div>
           )}
         </div>
@@ -524,8 +400,6 @@ export function FileDetailsModal({
   };
 
   if (!isOpen || !document) return null;
-
-  console.log(selectedChunk, "selectedChunk");
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -556,56 +430,58 @@ export function FileDetailsModal({
         {/* Pipeline Tabs */}
         <div className="border-b border-gray-200 bg-white px-6">
           <div className="flex space-x-0 overflow-x-auto">
-            {PIPELINE_STEPS.map((step, index) => {
-              const status = getStepStatus(step.id, index);
-              const enabled = isTabEnabled(step.id, index);
+            {PIPELINE_STEPS.filter((step) => step.id !== "completed").map(
+              (step) => {
+                const status = getStepStatus(step.id);
+                const enabled = isTabEnabled(step.id);
 
-              return (
-                <button
-                  key={step.id}
-                  onClick={() => enabled && setActiveTab(step.id)}
-                  disabled={!enabled}
-                  className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-all whitespace-nowrap ${
-                    activeTab === step.id
-                      ? "border-blue-500 text-blue-600"
-                      : enabled
-                      ? "border-transparent text-gray-700 hover:text-gray-900 hover:border-gray-300"
-                      : "border-transparent text-gray-400 cursor-not-allowed"
-                  }`}
-                >
-                  <span
-                    className={`${
-                      status === "completed"
-                        ? "text-green-500"
-                        : status === "processing"
-                        ? "text-blue-500"
-                        : status === "failed"
-                        ? "text-red-500"
-                        : "text-gray-400"
+                return (
+                  <button
+                    key={step.id}
+                    onClick={() => enabled && setActiveTab(step.id)}
+                    disabled={!enabled}
+                    className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-all whitespace-nowrap ${
+                      activeTab === step.id
+                        ? "border-blue-500 text-blue-600"
+                        : enabled
+                        ? "border-transparent text-gray-700 hover:text-gray-900 hover:border-gray-300"
+                        : "border-transparent text-gray-400 cursor-not-allowed"
                     }`}
                   >
-                    {getTabIcon(status)}
-                  </span>
-                  {step.name}
-                </button>
-              );
-            })}
+                    <span
+                      className={`${
+                        status === "completed"
+                          ? "text-green-500"
+                          : status === "processing"
+                          ? "text-blue-500"
+                          : status === "failed"
+                          ? "text-red-500"
+                          : "text-gray-400"
+                      }`}
+                    >
+                      {getTabIcon(step.id)}
+                    </span>
+                    {step.name}
+                  </button>
+                );
+              }
+            )}
 
             {/* View Chunks Tab */}
             <button
-              onClick={() => processingComplete && setActiveTab("chunks")}
-              disabled={!processingComplete}
+              onClick={() => isProcessingComplete && setActiveTab("completed")}
+              disabled={!isProcessingComplete}
               className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-all whitespace-nowrap ${
-                activeTab === "chunks"
+                activeTab === "completed"
                   ? "border-purple-500 text-purple-600"
-                  : processingComplete
+                  : isProcessingComplete
                   ? "border-transparent text-gray-700 hover:text-gray-900 hover:border-gray-300"
                   : "border-transparent text-gray-400 cursor-not-allowed"
               }`}
             >
               <Eye
                 className={`w-4 h-4 ${
-                  processingComplete ? "text-purple-500" : "text-gray-400"
+                  isProcessingComplete ? "text-purple-500" : "text-gray-400"
                 }`}
               />
               View Chunks
@@ -683,7 +559,11 @@ export function FileDetailsModal({
                   <div className="w-12 h-12 bg-gray-200 rounded-lg mx-auto mb-3 flex items-center justify-center">
                     <Eye size={24} className="text-gray-400" />
                   </div>
-                  <p className="text-sm">Select a chunk to inspect details</p>
+                  <p className="text-sm">
+                    {isProcessingComplete
+                      ? "Select a chunk to inspect details"
+                      : "Chunks will be available when processing completes"}
+                  </p>
                 </div>
               </div>
             )}

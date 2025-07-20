@@ -57,17 +57,25 @@ export default function ProjectPage({ params }: ProjectPageProps) {
     setProjectChats(result.data);
   };
 
-  const handleViewDetails = (fileId: string) => {
-    const document = projectDocuments.find((doc) => doc.id === fileId);
-    if (document) {
-      setSelectedDocument(document);
-      setIsModalOpen(true);
-    }
-  };
+  // Load project documents
+  const loadProjectDocuments = async () => {
+    if (!user?.id) return;
 
-  const handleCloseModal = () => {
-    setIsModalOpen(false);
-    setSelectedDocument(null);
+    const result = await apiClient.get(
+      `/api/projects/${projectId}/files?clerk_id=${user.id}`
+    );
+
+    setProjectDocuments(result.data);
+
+    // Update selectedDocument if modal is open and document has changed
+    if (selectedDocument && isModalOpen) {
+      const updatedDocument = result.data.find(
+        (doc: ProjectDocument) => doc.id === selectedDocument.id
+      );
+      if (updatedDocument) {
+        setSelectedDocument(updatedDocument);
+      }
+    }
   };
 
   // Load project settings
@@ -81,15 +89,17 @@ export default function ProjectPage({ params }: ProjectPageProps) {
     setProjectSettings(result.data);
   };
 
-  // Load project documents
-  const loadProjectDocuments = async () => {
-    if (!user?.id) return;
+  const handleViewDetails = (fileId: string) => {
+    const document = projectDocuments.find((doc) => doc.id === fileId);
+    if (document) {
+      setSelectedDocument(document);
+      setIsModalOpen(true);
+    }
+  };
 
-    const result = await apiClient.get(
-      `/api/projects/${projectId}/files?clerk_id=${user.id}`
-    );
-
-    setProjectDocuments(result.data);
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setSelectedDocument(null);
   };
 
   // Handle file upload with proper error handling
@@ -105,6 +115,7 @@ export default function ProjectPage({ params }: ProjectPageProps) {
       file_size: file.size,
       file_type: file.type,
       processing_status: "uploading" as const,
+      progress_percentage: 0,
       clerk_id: user.id,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
@@ -135,7 +146,7 @@ export default function ProjectPage({ params }: ProjectPageProps) {
         // Upload file directly to S3
         await apiClient.uploadToS3(upload_url, file);
 
-        // Confirm upload
+        // Confirm upload (this starts background processing)
         const confirmData = await apiClient.post(
           `/api/projects/${projectId}/files/confirm?clerk_id=${user.id}`,
           { s3_key }
@@ -148,6 +159,14 @@ export default function ProjectPage({ params }: ProjectPageProps) {
               : doc
           )
         );
+
+        // Update selectedDocument if this is the document currently being viewed in modal
+        if (selectedDocument && selectedDocument.id === tempDoc.id) {
+          setSelectedDocument({
+            ...confirmData.data,
+            processing_status: "queued",
+          });
+        }
       } catch (error) {
         console.error(`Upload failed for ${file.name}:`, error);
         setError(`Failed to upload ${file.name}`);
@@ -255,7 +274,40 @@ export default function ProjectPage({ params }: ProjectPageProps) {
     router.push(`/projects/${projectId}/chats/${chatId}`);
   };
 
-  // Load data when user is available
+  // Check if any documents are currently processing
+  const hasProcessingDocuments = () => {
+    return projectDocuments.some(
+      (doc) =>
+        doc.processing_status &&
+        !["completed", "failed"].includes(doc.processing_status)
+    );
+  };
+
+  // Real-time polling for document processing updates
+  useEffect(() => {
+    let pollInterval: NodeJS.Timeout;
+
+    if (user?.id && hasProcessingDocuments()) {
+      console.log("Starting polling - documents are processing");
+
+      // Poll every 2 seconds when documents are processing
+      pollInterval = setInterval(() => {
+        loadProjectDocuments();
+      }, 2000);
+    } else {
+      console.log("No polling needed - no processing documents");
+    }
+
+    // Cleanup interval on unmount or when polling not needed
+    return () => {
+      if (pollInterval) {
+        clearInterval(pollInterval);
+        console.log("Stopped polling");
+      }
+    };
+  }, [user?.id, projectDocuments]); // Re-run when user changes or documents change
+
+  // Load data when user is available (initial load)
   useEffect(() => {
     const loadData = async () => {
       if (user?.id) {
