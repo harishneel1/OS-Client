@@ -13,6 +13,7 @@ import {
   Search,
 } from "lucide-react";
 import { useState, useEffect } from "react";
+import { useUser } from "@clerk/nextjs";
 
 interface ProjectDocument {
   id: string;
@@ -35,7 +36,7 @@ const PIPELINE_STEPS = [
   {
     id: "upload",
     name: "Upload to S3",
-    duration: 2,
+    duration: 0.5,
     description: "Uploading file to secure cloud storage",
   },
   {
@@ -47,43 +48,43 @@ const PIPELINE_STEPS = [
   {
     id: "analysis",
     name: "Document Analysis",
-    duration: 6,
+    duration: 0.5,
     description: "Analyzing document structure and metadata",
   },
   {
     id: "partitioning",
     name: "Partitioning",
-    duration: 15,
+    duration: 0.5,
     description: "Processing and extracting text, images, and tables",
   },
   {
     id: "enrichment",
     name: "AI Enrichment",
-    duration: 18,
+    duration: 0.5,
     description: "Enhancing images and tables with AI descriptions",
   },
   {
     id: "chunking",
     name: "Text Chunking",
-    duration: 6,
+    duration: 0.5,
     description: "Creating semantic text chunks",
   },
   {
     id: "embedding",
     name: "Embedding Generation",
-    duration: 25,
+    duration: 0.5,
     description: "Generating vector embeddings",
   },
   {
     id: "storage",
     name: "Vector Storage",
-    duration: 4,
+    duration: 0.5,
     description: "Storing vectors in database",
   },
   {
     id: "indexing",
     name: "Index Building",
-    duration: 8,
+    duration: 0.5,
     description: "Building search indexes",
   },
 ];
@@ -162,9 +163,14 @@ export function FileDetailsModal({
   const [chunksFilter, setChunksFilter] = useState<
     "all" | "text" | "image" | "table"
   >("all");
+  const { user } = useUser();
+
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedChunk, setSelectedChunk] = useState<any>(null);
   const [processingComplete, setProcessingComplete] = useState(false);
+
+  const [chunks, setChunks] = useState<any[]>([]);
+  const [chunksLoading, setChunksLoading] = useState(false);
 
   const [metrics, setMetrics] = useState({
     pagesProcessed: 0,
@@ -174,6 +180,58 @@ export function FileDetailsModal({
     tablesExtracted: 0,
     processingTime: 0,
   });
+
+  const loadChunks = async () => {
+    if (!document?.project_id || !document?.id) return;
+
+    try {
+      setChunksLoading(true);
+
+      // Call your new API endpoint
+      const response = await fetch(
+        `http://localhost:8000/api/projects/${document.project_id}/files/${document.id}/chunks?clerk_id=${user?.id}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to load chunks");
+      }
+
+      const result = await response.json();
+
+      const transformedChunks = result.data.map((chunk: any) => ({
+        id: chunk.id,
+        type: chunk.type, // ✅ Backend has 'type'
+        content: chunk.content,
+        page: chunk.page_number, // ✅ Map to 'page' (UI expects this)
+        chunkIndex: chunk.chunk_index,
+        chars: chunk.char_count, // ✅ Map to 'chars' (UI expects this)
+      }));
+
+      setChunks(transformedChunks);
+      console.log(
+        `Loaded ${transformedChunks.length} real chunks from database`
+      );
+    } catch (error) {
+      console.error("Error loading chunks:", error);
+      setChunks([]); // Fall back to empty array
+    } finally {
+      setChunksLoading(false);
+    }
+  };
+
+  console.log(chunks, "chunks");
+
+  useEffect(() => {
+    if (isOpen && document && processingComplete) {
+      loadChunks();
+    }
+  }, [isOpen, document, processingComplete]);
 
   // Simulation effect
   useEffect(() => {
@@ -311,7 +369,9 @@ export function FileDetailsModal({
     return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i];
   };
 
-  const filteredChunks = MOCK_CHUNKS.filter((chunk) => {
+  const chunksToUse = chunks.length > 0 ? chunks : MOCK_CHUNKS;
+  const filteredChunks = chunksToUse.filter((chunk) => {
+    // rest of your existing filter logic stays the same
     const matchesFilter = chunksFilter === "all" || chunk.type === chunksFilter;
     const matchesSearch = chunk.content
       .toLowerCase()
@@ -330,7 +390,10 @@ export function FileDetailsModal({
                 Content Chunks
               </h3>
               <div className="text-sm text-gray-500">
-                {filteredChunks.length} of {MOCK_CHUNKS.length} chunks
+                {filteredChunks.length} of {chunksToUse.length} chunks
+                {chunksLoading && (
+                  <span className="text-blue-500"> (Loading...)</span>
+                )}
               </div>
             </div>
 
@@ -396,7 +459,7 @@ export function FileDetailsModal({
                       </span>
                     </div>
                     <div className="text-sm text-gray-500">
-                      {chunk.type === "text" && `${chunk.tokens} tokens`}
+                      {chunk.type === "text" && `${chunk.chars} chars`}
                     </div>
                   </div>
                   <p className="text-sm text-gray-700 line-clamp-2">
@@ -461,6 +524,8 @@ export function FileDetailsModal({
   };
 
   if (!isOpen || !document) return null;
+
+  console.log(selectedChunk, "selectedChunk");
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -596,22 +661,18 @@ export function FileDetailsModal({
                           {selectedChunk.page}
                         </span>
                       </div>
-                      {selectedChunk.type === "text" && (
-                        <>
-                          <div className="flex justify-between">
-                            <span className="text-gray-500">Tokens:</span>
-                            <span className="font-medium">
-                              {selectedChunk.tokens}
-                            </span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-gray-500">Characters:</span>
-                            <span className="font-medium">
-                              {selectedChunk.chars}
-                            </span>
-                          </div>
-                        </>
-                      )}
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Characters:</span>
+                        <span className="font-medium">
+                          {selectedChunk.chars}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Chunk Index:</span>
+                        <span className="font-medium">
+                          {selectedChunk.chunkIndex}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </div>
