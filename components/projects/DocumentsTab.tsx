@@ -1,19 +1,21 @@
 "use client";
 
 import { useDropzone } from "react-dropzone";
-import { Upload, FileText, Trash2 } from "lucide-react";
+import { Upload, FileText, Trash2, ChevronRight } from "lucide-react";
 import { ProjectDocument } from "@/lib/types";
 
 interface DocumentsTabProps {
   projectDocuments: ProjectDocument[];
   onFileUpload: (files: File[]) => Promise<void>;
   onFileDelete: (fileId: string) => Promise<void>;
+  onViewDetails: (fileId: string) => void;
 }
 
 export function DocumentsTab({
   projectDocuments,
   onFileUpload,
   onFileDelete,
+  onViewDetails,
 }: DocumentsTabProps) {
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop: onFileUpload,
@@ -99,7 +101,8 @@ export function DocumentsTab({
               .map((doc) => (
                 <div
                   key={doc.id}
-                  className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                  onClick={() => onViewDetails(doc.id)}
+                  className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer group"
                 >
                   <div className="flex items-center gap-3 flex-1 min-w-0">
                     <FileText
@@ -124,13 +127,22 @@ export function DocumentsTab({
                       </div>
                     </div>
                   </div>
-                  <button
-                    onClick={() => onFileDelete(doc.id)}
-                    className="text-gray-400 hover:text-red-500 transition-colors p-1 rounded"
-                    title="Delete file"
-                  >
-                    <Trash2 size={16} />
-                  </button>
+                  <div className="flex items-center gap-1">
+                    <ChevronRight
+                      size={14}
+                      className="text-gray-400 group-hover:text-gray-600 transition-colors"
+                    />
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onFileDelete(doc.id);
+                      }}
+                      className="text-gray-400 hover:text-red-500 transition-colors p-1 rounded"
+                      title="Delete file"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
                 </div>
               ))}
           </div>

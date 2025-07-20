@@ -32,6 +32,7 @@ export function KnowledgeBaseSidebar({
   projectDocuments,
   onFileUpload,
   onFileDelete,
+  onViewDetails,
 }: KnowledgeBaseSidebarProps) {
   return (
     <div className="w-80 border-l border-gray-200 bg-white h-full flex flex-col">
@@ -78,6 +79,7 @@ export function KnowledgeBaseSidebar({
             projectDocuments={projectDocuments}
             onFileUpload={onFileUpload}
             onFileDelete={onFileDelete}
+            onViewDetails={onViewDetails}
           />
         ) : (
           <SettingsTab

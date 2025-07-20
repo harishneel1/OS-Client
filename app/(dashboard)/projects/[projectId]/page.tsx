@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { ProjectView } from "../../../../components/projects/ProjectView";
 import { Project, Chat, ProjectSettings, ProjectDocument } from "@/lib/types";
 import { apiClient } from "@/lib/api";
+import { FileDetailsModal } from "@/components/projects/FileDetailsModal";
 
 const API_BASE_URL = "http://localhost:8000";
 
@@ -25,6 +26,11 @@ export default function ProjectPage({ params }: ProjectPageProps) {
   const [projectDocuments, setProjectDocuments] = useState<ProjectDocument[]>(
     []
   );
+
+  const [selectedDocument, setSelectedDocument] =
+    useState<ProjectDocument | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
   const [loading, setLoading] = useState(true);
   const [settingsLoading, setSettingsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -49,6 +55,19 @@ export default function ProjectPage({ params }: ProjectPageProps) {
   const loadProjectChats = async () => {
     const result = await apiClient.get(`/api/projects/${projectId}/chats`);
     setProjectChats(result.data);
+  };
+
+  const handleViewDetails = (fileId: string) => {
+    const document = projectDocuments.find((doc) => doc.id === fileId);
+    if (document) {
+      setSelectedDocument(document);
+      setIsModalOpen(true);
+    }
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setSelectedDocument(null);
   };
 
   // Load project settings
@@ -277,20 +296,28 @@ export default function ProjectPage({ params }: ProjectPageProps) {
   }
 
   return (
-    <ProjectView
-      project={project}
-      projectChats={projectChats}
-      projectSettings={projectSettings}
-      projectDocuments={projectDocuments}
-      error={error}
-      settingsError={settingsError}
-      settingsLoading={settingsLoading}
-      isCreatingChat={isCreatingChat}
-      onCreateNewChat={createNewChat}
-      onChatClick={handleChatClick}
-      onSaveSettings={saveProjectSettings}
-      onFileUpload={handleFileUpload}
-      onFileDelete={handleFileDelete}
-    />
+    <>
+      <ProjectView
+        project={project}
+        projectChats={projectChats}
+        projectSettings={projectSettings}
+        projectDocuments={projectDocuments}
+        error={error}
+        settingsError={settingsError}
+        settingsLoading={settingsLoading}
+        isCreatingChat={isCreatingChat}
+        onCreateNewChat={createNewChat}
+        onChatClick={handleChatClick}
+        onSaveSettings={saveProjectSettings}
+        onFileUpload={handleFileUpload}
+        onFileDelete={handleFileDelete}
+        onViewDetails={handleViewDetails}
+      />
+      <FileDetailsModal
+        isOpen={isModalOpen}
+        onClose={handleCloseModal}
+        document={selectedDocument}
+      />
+    </>
   );
 }

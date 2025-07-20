@@ -20,6 +20,7 @@ interface ProjectViewProps {
   projectDocuments: ProjectDocument[];
   onFileUpload: (files: File[]) => Promise<void>;
   onFileDelete: (fileId: string) => Promise<void>;
+  onViewDetails: (fileId: string) => void;
 }
 
 export function ProjectView({
@@ -36,6 +37,7 @@ export function ProjectView({
   projectDocuments,
   onFileUpload,
   onFileDelete,
+  onViewDetails,
 }: ProjectViewProps) {
   const [activeTab, setActiveTab] = useState<"documents" | "settings">(
     "documents"
@@ -188,6 +190,7 @@ export function ProjectView({
         projectDocuments={projectDocuments}
         onFileUpload={onFileUpload}
         onFileDelete={onFileDelete}
+        onViewDetails={onViewDetails}
       />
     </div>
   );
