@@ -7,13 +7,12 @@ import {
   Clock,
   AlertCircle,
   Loader2,
-  Upload,
   Eye,
-  Filter,
   Search,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useUser } from "@clerk/nextjs";
+import { apiClient } from "@/lib/api";
 
 interface ProjectDocument {
   id: string;
@@ -103,19 +102,10 @@ export function FileDetailsModal({
   const [chunks, setChunks] = useState<any[]>([]);
   const [chunksLoading, setChunksLoading] = useState(false);
 
-  // Get current processing status from document prop
   const currentStatus = document?.processing_status || "uploading";
   const progressPercentage = document?.progress_percentage || 0;
   const isProcessingComplete = currentStatus === "completed";
   const isProcessingFailed = currentStatus === "failed";
-
-  // Debug logging - remove this later
-  console.log("Modal Debug:", {
-    currentStatus,
-    progressPercentage,
-    activeTab,
-    documentId: document?.id,
-  });
 
   // Load chunks when document processing is complete
   const loadChunks = async () => {
@@ -124,21 +114,9 @@ export function FileDetailsModal({
     try {
       setChunksLoading(true);
 
-      const response = await fetch(
-        `http://localhost:8000/api/projects/${document.project_id}/files/${document.id}/chunks?clerk_id=${user.id}`,
-        {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-          },
-        }
+      const result = await apiClient.get(
+        `/api/projects/${document.project_id}/files/${document.id}/chunks?clerk_id=${user.id}`
       );
-
-      if (!response.ok) {
-        throw new Error("Failed to load chunks");
-      }
-
-      const result = await response.json();
 
       const transformedChunks = result.data.map((chunk: any) => ({
         id: chunk.id,
@@ -168,23 +146,15 @@ export function FileDetailsModal({
     }
   }, [isOpen, isProcessingComplete, document?.id]);
 
-  // Reset state when modal opens with new document
+  // Reset state when modal opens with new document or status changes
   useEffect(() => {
     if (isOpen && document) {
-      // Set active tab based on current processing status
       setActiveTab(currentStatus);
       setSelectedChunk(null);
       setSearchQuery("");
       setChunks([]);
     }
   }, [isOpen, document?.id, currentStatus]);
-
-  // Auto-update active tab when processing status changes
-  useEffect(() => {
-    if (isOpen && currentStatus && currentStatus !== "completed") {
-      setActiveTab(currentStatus);
-    }
-  }, [currentStatus, isOpen]);
 
   const getStepStatus = (stepId: string) => {
     const stepIndex = PIPELINE_STEPS.findIndex((step) => step.id === stepId);

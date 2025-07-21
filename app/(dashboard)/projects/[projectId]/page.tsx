@@ -8,8 +8,6 @@ import { Project, Chat, ProjectSettings, ProjectDocument } from "@/lib/types";
 import { apiClient } from "@/lib/api";
 import { FileDetailsModal } from "@/components/projects/FileDetailsModal";
 
-const API_BASE_URL = "http://localhost:8000";
-
 interface ProjectPageProps {
   params: Promise<{
     projectId: string;
@@ -102,7 +100,7 @@ export default function ProjectPage({ params }: ProjectPageProps) {
     setSelectedDocument(null);
   };
 
-  // Handle file upload with real documents from start
+  // Handle file upload
   const handleFileUpload = async (files: File[]) => {
     if (!user?.id) return;
 
@@ -121,7 +119,7 @@ export default function ProjectPage({ params }: ProjectPageProps) {
 
         const { upload_url, s3_key, document } = uploadData.data;
 
-        // Step 2: Add real document to UI immediately
+        // Step 2: Add document to UI immediately
         setProjectDocuments((prev) => [document, ...prev]);
 
         // Step 3: Upload file to S3
@@ -137,11 +135,6 @@ export default function ProjectPage({ params }: ProjectPageProps) {
         setProjectDocuments((prev) =>
           prev.map((doc) => (doc.id === document.id ? confirmData.data : doc))
         );
-
-        // Update selectedDocument if this document is open in modal
-        if (selectedDocument && selectedDocument.id === document.id) {
-          setSelectedDocument(confirmData.data);
-        }
       } catch (error) {
         console.error(`Upload failed for ${file.name}:`, error);
         setError(`Failed to upload ${file.name}`);
@@ -156,7 +149,7 @@ export default function ProjectPage({ params }: ProjectPageProps) {
     if (!user?.id) return;
 
     try {
-      const response = await apiClient.delete(
+      await apiClient.delete(
         `/api/projects/${projectId}/files/${fileId}?clerk_id=${user.id}`
       );
 
