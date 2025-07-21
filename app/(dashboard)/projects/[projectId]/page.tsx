@@ -102,35 +102,14 @@ export default function ProjectPage({ params }: ProjectPageProps) {
     setSelectedDocument(null);
   };
 
-  // Handle file upload with proper error handling
+  // Handle file upload with real documents from start
   const handleFileUpload = async (files: File[]) => {
     if (!user?.id) return;
 
-    // Step 1: Create ALL temp documents and show them immediately
-    const tempDocuments = files.map((file, index) => ({
-      id: `temp-${Date.now()}-${index}`, // index prevents collisions
-      project_id: projectId,
-      original_filename: file.name,
-      s3_key: "",
-      file_size: file.size,
-      file_type: file.type,
-      processing_status: "uploading" as const,
-      progress_percentage: 0,
-      clerk_id: user.id,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    }));
-
-    // Step 2: Add ALL files to UI at once
-    setProjectDocuments((prev) => [...tempDocuments, ...prev]);
-
-    // Step 3: Upload all files in parallel, update each individually
-    const uploadPromises = tempDocuments.map(async (tempDoc, index) => {
-      const file = files[index]; // direct mapping by index
-      let documentId: string | null = null;
-
+    // Process each file individually
+    const uploadPromises = files.map(async (file) => {
       try {
-        // Get presigned URL (creates database record)
+        // Step 1: Get upload URL and real document
         const uploadData = await apiClient.post(
           `/api/projects/${projectId}/files/upload-url?clerk_id=${user.id}`,
           {
@@ -140,58 +119,32 @@ export default function ProjectPage({ params }: ProjectPageProps) {
           }
         );
 
-        const { upload_url, s3_key, document_id } = uploadData.data;
-        documentId = document_id;
+        const { upload_url, s3_key, document } = uploadData.data;
 
-        // Upload file directly to S3
+        // Step 2: Add real document to UI immediately
+        setProjectDocuments((prev) => [document, ...prev]);
+
+        // Step 3: Upload file to S3
         await apiClient.uploadToS3(upload_url, file);
 
-        // Confirm upload (this starts background processing)
+        // Step 4: Confirm upload (starts background processing)
         const confirmData = await apiClient.post(
           `/api/projects/${projectId}/files/confirm?clerk_id=${user.id}`,
           { s3_key }
         );
 
+        // Step 5: Update document status to 'queued'
         setProjectDocuments((prev) =>
-          prev.map((doc) =>
-            doc.id === tempDoc.id
-              ? { ...confirmData.data, processing_status: "queued" }
-              : doc
-          )
+          prev.map((doc) => (doc.id === document.id ? confirmData.data : doc))
         );
 
-        // Update selectedDocument if this is the document currently being viewed in modal
-        if (selectedDocument && selectedDocument.id === tempDoc.id) {
-          setSelectedDocument({
-            ...confirmData.data,
-            processing_status: "queued",
-          });
+        // Update selectedDocument if this document is open in modal
+        if (selectedDocument && selectedDocument.id === document.id) {
+          setSelectedDocument(confirmData.data);
         }
       } catch (error) {
         console.error(`Upload failed for ${file.name}:`, error);
         setError(`Failed to upload ${file.name}`);
-
-        // Update this specific tempDoc to 'failed'
-        setProjectDocuments((prev) =>
-          prev.map((doc) =>
-            doc.id === tempDoc.id
-              ? { ...doc, processing_status: "failed" }
-              : doc
-          )
-        );
-
-        // Cleanup orphaned database record if it was created
-        if (documentId) {
-          try {
-            await fetch(
-              `${API_BASE_URL}/api/projects/${projectId}/files/${documentId}?clerk_id=${user.id}`,
-              { method: "DELETE" }
-            );
-            console.log(`Cleaned up orphaned record: ${documentId}`);
-          } catch (cleanupError) {
-            console.error("Failed to cleanup orphaned record:", cleanupError);
-          }
-        }
       }
     });
 
