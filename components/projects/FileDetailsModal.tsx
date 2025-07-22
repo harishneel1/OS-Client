@@ -56,7 +56,7 @@ const PIPELINE_STEPS = [
   {
     id: "enrichment",
     name: "AI Enrichment",
-    description: "Enhancing images and tables with AI descriptions",
+    description: "Enhancing images and tables with summaries",
   },
   {
     id: "chunking",
