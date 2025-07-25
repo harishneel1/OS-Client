@@ -94,6 +94,7 @@ export function FileDetailsModal({
   const [chunksFilter, setChunksFilter] = useState<
     "all" | "text" | "image" | "table"
   >("all");
+  const [detailTab, setDetailTab] = useState<"summary" | "original">("summary");
   const { user } = useUser();
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -122,6 +123,7 @@ export function FileDetailsModal({
         id: chunk.id,
         type: chunk.type,
         content: chunk.content,
+        original_content: chunk.original_content,
         page: chunk.page_number,
         chunkIndex: chunk.chunk_index,
         chars: chunk.char_count,
@@ -153,8 +155,14 @@ export function FileDetailsModal({
       setSelectedChunk(null);
       setSearchQuery("");
       setChunks([]);
+      setDetailTab("summary"); // Reset detail tab to summary
     }
   }, [isOpen, document?.id, currentStatus]);
+
+  // Reset detail tab when chunk selection changes
+  useEffect(() => {
+    setDetailTab("summary");
+  }, [selectedChunk]);
 
   const getStepStatus = (stepId: string) => {
     const stepIndex = PIPELINE_STEPS.findIndex((step) => step.id === stepId);
@@ -465,62 +473,145 @@ export function FileDetailsModal({
           <div className="flex-1 overflow-y-auto">{renderTabContent()}</div>
 
           {/* Right Panel - Detail Inspector */}
-          <div className="w-80 bg-gray-50 border-l border-gray-200 flex flex-col">
+          <div className="w-[40%] bg-gray-50 border-l border-gray-200 flex flex-col">
             <div className="p-4 border-b border-gray-200">
               <h4 className="font-medium text-gray-900">Detail Inspector</h4>
             </div>
 
             {selectedChunk ? (
-              <div className="flex-1 overflow-y-auto p-4">
-                <div className="space-y-4">
-                  <div>
-                    <span
-                      className={`inline-block px-2 py-1 rounded text-xs font-medium ${
-                        selectedChunk.type === "text"
-                          ? "bg-green-100 text-green-700"
-                          : selectedChunk.type === "image"
-                          ? "bg-purple-100 text-purple-700"
-                          : "bg-orange-100 text-orange-700"
-                      }`}
-                    >
-                      {selectedChunk.type.toUpperCase()}
-                    </span>
-                  </div>
-
-                  <div>
-                    <h5 className="text-sm font-medium text-gray-700 mb-2">
-                      Content
-                    </h5>
-                    <div className="text-sm text-gray-600 bg-white p-3 rounded-lg border">
-                      {selectedChunk.content}
+              <div className="flex-1 overflow-y-auto">
+                {/* Tab Buttons for table and image chunks */}
+                {(selectedChunk.type === "table" ||
+                  selectedChunk.type === "image") && (
+                  <div className="p-4 border-b border-gray-200">
+                    <div className="flex gap-1">
+                      <button
+                        onClick={() => setDetailTab("summary")}
+                        className={`px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                          detailTab === "summary"
+                            ? "bg-blue-100 text-blue-700"
+                            : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+                        }`}
+                      >
+                        📄 Summary
+                      </button>
+                      <button
+                        onClick={() => setDetailTab("original")}
+                        className={`px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                          detailTab === "original"
+                            ? "bg-blue-100 text-blue-700"
+                            : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+                        }`}
+                      >
+                        {selectedChunk.type === "table"
+                          ? "📊 Original"
+                          : "🖼️ Original"}
+                      </button>
                     </div>
                   </div>
+                )}
 
-                  <div>
-                    <h5 className="text-sm font-medium text-gray-700 mb-2">
-                      Metadata
-                    </h5>
-                    <div className="space-y-2 text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">Page:</span>
-                        <span className="font-medium">
-                          {selectedChunk.page}
+                {/* Content Area */}
+                <div className="p-4">
+                  {detailTab === "summary" && (
+                    <div className="space-y-4">
+                      <div>
+                        <span
+                          className={`inline-block px-2 py-1 rounded text-xs font-medium ${
+                            selectedChunk.type === "text"
+                              ? "bg-green-100 text-green-700"
+                              : selectedChunk.type === "image"
+                              ? "bg-purple-100 text-purple-700"
+                              : "bg-orange-100 text-orange-700"
+                          }`}
+                        >
+                          {selectedChunk.type.toUpperCase()}
                         </span>
                       </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">Characters:</span>
-                        <span className="font-medium">
-                          {selectedChunk.chars}
-                        </span>
+
+                      <div>
+                        <h5 className="text-sm font-medium text-gray-700 mb-2">
+                          Content
+                        </h5>
+                        <div className="text-sm text-gray-600 bg-white p-3 rounded-lg border">
+                          {selectedChunk.content}
+                        </div>
                       </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">Chunk Index:</span>
-                        <span className="font-medium">
-                          {selectedChunk.chunkIndex}
-                        </span>
+
+                      <div>
+                        <h5 className="text-sm font-medium text-gray-700 mb-2">
+                          Metadata
+                        </h5>
+                        <div className="space-y-2 text-sm">
+                          <div className="flex justify-between">
+                            <span className="text-gray-500">Page:</span>
+                            <span className="font-medium">
+                              {selectedChunk.page}
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-500">Characters:</span>
+                            <span className="font-medium">
+                              {selectedChunk.chars}
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-500">Chunk Index:</span>
+                            <span className="font-medium">
+                              {selectedChunk.chunkIndex}
+                            </span>
+                          </div>
+                        </div>
                       </div>
                     </div>
-                  </div>
+                  )}
+
+                  {detailTab === "original" &&
+                    selectedChunk.type === "table" && (
+                      <div className="space-y-4">
+                        <div>
+                          <h5 className="text-sm font-medium text-gray-700 mb-2">
+                            Original Table
+                          </h5>
+                          <div
+                            className="bg-white border rounded-lg p-4 overflow-auto max-h-96"
+                            dangerouslySetInnerHTML={{
+                              __html:
+                                selectedChunk.original_content ||
+                                "No table data available",
+                            }}
+                            style={{
+                              fontSize: "12px", // Make table text smaller
+                            }}
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                  {detailTab === "original" &&
+                    selectedChunk.type === "image" && (
+                      <div className="space-y-4">
+                        <div>
+                          <h5 className="text-sm font-medium text-gray-700 mb-2">
+                            Original Image
+                          </h5>
+                          <div className="bg-white border rounded-lg p-4">
+                            {selectedChunk.original_content ? (
+                              <img
+                                src={`data:image/jpeg;base64,${selectedChunk.original_content}`}
+                                alt="Document image"
+                                className="max-w-full h-auto rounded"
+                                style={{ maxHeight: "400px" }}
+                              />
+                            ) : (
+                              <p className="text-gray-500">
+                                No image data available
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
                 </div>
               </div>
             ) : (
