@@ -121,9 +121,9 @@ export function FileDetailsModal({
 
       const transformedChunks = result.data.map((chunk: any) => ({
         id: chunk.id,
-        type: chunk.type,
+        type: chunk.type, // This is now an array like ["text", "table"]
         content: chunk.content,
-        original_content: chunk.original_content,
+        original_content: chunk.original_content, // This is now a JSON object
         page: chunk.page_number,
         chunkIndex: chunk.chunk_index,
         chars: chunk.char_count,
@@ -214,12 +214,19 @@ export function FileDetailsModal({
   };
 
   const filteredChunks = chunks.filter((chunk) => {
-    const matchesFilter = chunksFilter === "all" || chunk.type === chunksFilter;
+    const matchesFilter =
+      chunksFilter === "all" ||
+      (Array.isArray(chunk.type) && chunk.type.includes(chunksFilter));
     const matchesSearch = chunk.content
       .toLowerCase()
       .includes(searchQuery.toLowerCase());
     return matchesFilter && matchesSearch;
   });
+
+  // Helper function to check if chunk has specific type
+  const chunkHasType = (chunk: any, type: string) => {
+    return Array.isArray(chunk.type) && chunk.type.includes(type);
+  };
 
   const renderTabContent = () => {
     if (activeTab === "completed" && isProcessingComplete) {
@@ -298,23 +305,28 @@ export function FileDetailsModal({
                   >
                     <div className="flex items-start justify-between mb-2">
                       <div className="flex items-center gap-2">
-                        <span
-                          className={`px-2 py-1 rounded text-xs font-medium ${
-                            chunk.type === "text"
-                              ? "bg-green-100 text-green-700"
-                              : chunk.type === "image"
-                              ? "bg-purple-100 text-purple-700"
-                              : "bg-orange-100 text-orange-700"
-                          }`}
-                        >
-                          {chunk.type}
-                        </span>
+                        {/* Display multiple type badges */}
+                        {Array.isArray(chunk.type) &&
+                          chunk.type.map((type: string) => (
+                            <span
+                              key={type}
+                              className={`px-2 py-1 rounded text-xs font-medium ${
+                                type === "text"
+                                  ? "bg-green-100 text-green-700"
+                                  : type === "image"
+                                  ? "bg-purple-100 text-purple-700"
+                                  : "bg-orange-100 text-orange-700"
+                              }`}
+                            >
+                              {type}
+                            </span>
+                          ))}
                         <span className="text-sm text-gray-500">
                           Page {chunk.page}
                         </span>
                       </div>
                       <div className="text-sm text-gray-500">
-                        {chunk.type === "text" && `${chunk.chars} chars`}
+                        {`${chunk.chars} chars`}
                       </div>
                     </div>
                     <p className="text-sm text-gray-700 line-clamp-2">
@@ -481,8 +493,8 @@ export function FileDetailsModal({
             {selectedChunk ? (
               <div className="flex-1 overflow-y-auto">
                 {/* Tab Buttons for table and image chunks */}
-                {(selectedChunk.type === "table" ||
-                  selectedChunk.type === "image") && (
+                {(chunkHasType(selectedChunk, "table") ||
+                  chunkHasType(selectedChunk, "image")) && (
                   <div className="p-4 border-b border-gray-200">
                     <div className="flex gap-1">
                       <button
@@ -503,9 +515,7 @@ export function FileDetailsModal({
                             : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
                         }`}
                       >
-                        {selectedChunk.type === "table"
-                          ? "📊 Original"
-                          : "🖼️ Original"}
+                        📊 Original
                       </button>
                     </div>
                   </div>
@@ -515,18 +525,22 @@ export function FileDetailsModal({
                 <div className="p-4">
                   {detailTab === "summary" && (
                     <div className="space-y-4">
-                      <div>
-                        <span
-                          className={`inline-block px-2 py-1 rounded text-xs font-medium ${
-                            selectedChunk.type === "text"
-                              ? "bg-green-100 text-green-700"
-                              : selectedChunk.type === "image"
-                              ? "bg-purple-100 text-purple-700"
-                              : "bg-orange-100 text-orange-700"
-                          }`}
-                        >
-                          {selectedChunk.type.toUpperCase()}
-                        </span>
+                      <div className="flex gap-2 flex-wrap">
+                        {Array.isArray(selectedChunk.type) &&
+                          selectedChunk.type.map((type: string) => (
+                            <span
+                              key={type}
+                              className={`inline-block px-2 py-1 rounded text-xs font-medium ${
+                                type === "text"
+                                  ? "bg-green-100 text-green-700"
+                                  : type === "image"
+                                  ? "bg-purple-100 text-purple-700"
+                                  : "bg-orange-100 text-orange-700"
+                              }`}
+                            >
+                              {type.toUpperCase()}
+                            </span>
+                          ))}
                       </div>
 
                       <div>
@@ -566,52 +580,72 @@ export function FileDetailsModal({
                     </div>
                   )}
 
-                  {detailTab === "original" &&
-                    selectedChunk.type === "table" && (
-                      <div className="space-y-4">
+                  {detailTab === "original" && (
+                    <div className="space-y-4">
+                      {/* Display original text */}
+                      {selectedChunk.original_content?.text && (
                         <div>
                           <h5 className="text-sm font-medium text-gray-700 mb-2">
-                            Original Table
+                            Original Text
                           </h5>
-                          <div
-                            className="bg-white border rounded-lg p-4 overflow-auto max-h-96"
-                            dangerouslySetInnerHTML={{
-                              __html:
-                                selectedChunk.original_content ||
-                                "No table data available",
-                            }}
-                            style={{
-                              fontSize: "12px", // Make table text smaller
-                            }}
-                          />
-                        </div>
-                      </div>
-                    )}
-
-                  {detailTab === "original" &&
-                    selectedChunk.type === "image" && (
-                      <div className="space-y-4">
-                        <div>
-                          <h5 className="text-sm font-medium text-gray-700 mb-2">
-                            Original Image
-                          </h5>
-                          <div className="bg-white border rounded-lg p-4">
-                            {selectedChunk.original_content ? (
-                              <img
-                                src={`data:image/jpeg;base64,${selectedChunk.original_content}`}
-                                alt="Document image"
-                                className="max-w-full h-auto rounded"
-                                style={{ maxHeight: "400px" }}
-                              />
-                            ) : (
-                              <p className="text-gray-500">
-                                No image data available
-                              </p>
-                            )}
+                          <div className="text-sm text-gray-600 bg-white p-3 rounded-lg border max-h-40 overflow-y-auto">
+                            {selectedChunk.original_content.text}
                           </div>
                         </div>
-                      </div>
-                    )}
+                      )}
+
+                      {/* Display tables */}
+                      {selectedChunk.original_content?.tables &&
+                        selectedChunk.original_content.tables.length > 0 && (
+                          <div>
+                            <h5 className="text-sm font-medium text-gray-700 mb-2">
+                              Tables (
+                              {selectedChunk.original_content.tables.length})
+                            </h5>
+                            {selectedChunk.original_content.tables.map(
+                              (table: string, index: number) => (
+                                <div
+                                  key={index}
+                                  className="bg-white border rounded-lg p-4 overflow-auto max-h-96 mb-2"
+                                  dangerouslySetInnerHTML={{
+                                    __html: table || "No table data available",
+                                  }}
+                                  style={{
+                                    fontSize: "12px",
+                                  }}
+                                />
+                              )
+                            )}
+                          </div>
+                        )}
+
+                      {/* Display images */}
+                      {selectedChunk.original_content?.images &&
+                        selectedChunk.original_content.images.length > 0 && (
+                          <div>
+                            <h5 className="text-sm font-medium text-gray-700 mb-2">
+                              Images (
+                              {selectedChunk.original_content.images.length})
+                            </h5>
+                            {selectedChunk.original_content.images.map(
+                              (image: string, index: number) => (
+                                <div
+                                  key={index}
+                                  className="bg-white border rounded-lg p-4 mb-2"
+                                >
+                                  <img
+                                    src={`data:image/jpeg;base64,${image}`}
+                                    alt={`Document image ${index + 1}`}
+                                    className="max-w-full h-auto rounded"
+                                    style={{ maxHeight: "300px" }}
+                                  />
+                                </div>
+                              )
+                            )}
+                          </div>
+                        )}
+                    </div>
+                  )}
                 </div>
               </div>
             ) : (
